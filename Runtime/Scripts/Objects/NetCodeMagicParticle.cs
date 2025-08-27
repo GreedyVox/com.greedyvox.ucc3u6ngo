@@ -65,6 +65,11 @@ namespace GreedyVox.NetCode.Objects
         /// <param name="owner">The object that instantiated the trajectory object.</param>
         public void Initialize(uint id, GameObject own) { }
         /// <summary>
+        /// The cloned object. This will be called from the object that was spawned.
+        /// </summary>
+        /// <param name="go">The object that instantiated.</param>
+        public void Clone(GameObject go) { }
+        /// <summary>
         /// Returns the maximus size for the fast buffer writer
         /// </summary>
         public int MaxBufferSize()

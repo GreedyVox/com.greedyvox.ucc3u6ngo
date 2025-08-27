@@ -31,6 +31,11 @@ namespace GreedyVox.NetCode.Objects
             Initialize(id, Vector3.zero, Vector3.zero, own, m_DamageData);
         }
         /// <summary>
+        /// The cloned object. This will be called from the object that was spawned.
+        /// </summary>
+        /// <param name="go">The object that instantiated.</param>
+        public void Clone(GameObject go) { }
+        /// <summary>
         /// Initialize the payload data values.
         /// </summary>
         private PayloadGrenado PayLoad()

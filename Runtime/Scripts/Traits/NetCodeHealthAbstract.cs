@@ -28,9 +28,9 @@ namespace GreedyVox.NetCode.Traits
         protected virtual void Awake()
         {
             m_GamingObject = gameObject;
-            m_NetCodeObject = GetComponent<NetworkObject>();
             m_Health = m_GamingObject.GetCachedComponent<Health>();
             m_Inventory = m_GamingObject.GetCachedComponent<InventoryBase>();
+            m_NetCodeObject = m_GamingObject.GetCachedParentComponent<NetworkObject>();
         }
         /// <summary>
         /// The object has taken been damaged on the network.

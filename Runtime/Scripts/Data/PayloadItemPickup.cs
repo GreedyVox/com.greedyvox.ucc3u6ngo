@@ -5,7 +5,8 @@ namespace GreedyVox.NetCode.Data
 {
     public struct PayloadItemPickup : INetworkSerializable
     {
-        public long OwnerID;
+        public Vector3 Position;
+        public Quaternion Rotation;
         public int ItemCount;
         public Vector3 Torque;
         public Vector3 Velocity;
@@ -14,15 +15,16 @@ namespace GreedyVox.NetCode.Data
         public void NetworkSerialize<T>(BufferSerializer<T> serializer)
         where T : IReaderWriter
         {
+            serializer.SerializeValue(ref Position);
+            serializer.SerializeValue(ref Rotation);
+            serializer.SerializeValue(ref ItemCount);
+            serializer.SerializeValue(ref Torque);
+            serializer.SerializeValue(ref Velocity);
             if (serializer.IsReader)
             {
                 ItemID = new uint[ItemCount];
                 ItemAmounts = new int[ItemCount];
             }
-            serializer.SerializeValue(ref OwnerID);
-            serializer.SerializeValue(ref ItemCount);
-            serializer.SerializeValue(ref Torque);
-            serializer.SerializeValue(ref Velocity);
             for (int n = 0; n < ItemCount; n++)
                 serializer.SerializeValue(ref ItemID[n]);
             for (int n = 0; n < ItemCount; n++)

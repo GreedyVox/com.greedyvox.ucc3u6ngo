@@ -23,7 +23,7 @@ namespace GreedyVox.NetCode.Traits
             if (IsServer)
             {
                 SpawnObjectsOnDeath(position, force);
-                if (TryGetComponent<Respawner>(out var com)
+                if (TryGetComponent(out Respawner com)
                 && (com.ScheduleRespawnOnDeath || com.ScheduleRespawnOnDisable))
                     return;
                 if (m_NetCodeObject == null)
@@ -51,7 +51,7 @@ namespace GreedyVox.NetCode.Traits
                         continue;
                     }
                     NetworkObjectPool.NetworkSpawn(go, obj, true);
-                    if (obj.TryGetComponent<Explosion>(out var exp))
+                    if (obj.TryGetComponent(out Explosion exp))
                         exp.Explode(gameObject);
                     var rigs = obj.GetComponentsInChildren<Rigidbody>();
                     for (int i = 0; i < rigs.Length; i++)

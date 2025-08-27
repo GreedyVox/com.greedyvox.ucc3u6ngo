@@ -64,20 +64,20 @@ namespace GreedyVox.NetCode.Game
         /// Spawns an object over the network without instantiating a new object on the local client.
         /// </summary>
         /// <param name="original">The original object the instance was created from.</param>
-        /// <param name="instanceObject">The instance object created from the original object.</param>
+        /// <param name="instance">The instance object created from the original object.</param>
         /// <param name="sceneObject">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
-        protected override void NetworkSpawnInternal(GameObject original, GameObject instanceObject, bool sceneObject)
+        protected override void NetworkSpawnInternal(GameObject original, GameObject instance, bool scene)
         {
             if (m_SpawnableGameObjects.Contains(original))
             {
-                if (!m_SpawnedGameObjects.Contains(instanceObject))
-                    m_SpawnedGameObjects.Add(instanceObject);
-                if (!m_ActiveGameObjects.Contains(instanceObject))
-                    m_ActiveGameObjects.Add(instanceObject);
+                if (!m_SpawnedGameObjects.Contains(instance))
+                    m_SpawnedGameObjects.Add(instance);
+                if (!m_ActiveGameObjects.Contains(instance))
+                    m_ActiveGameObjects.Add(instance);
                 if (NetworkManager.Singleton.IsServer)
-                    instanceObject.GetCachedComponent<NetworkObject>()?.Spawn(sceneObject);
-                else if (ComponentUtility.TryGet<IPayload>(instanceObject, out var dat))
-                    NetCodeMessenger.Instance.ClientSpawnObject(original, dat);
+                    instance.GetCachedComponent<NetworkObject>()?.Spawn(scene);
+                else if (ComponentUtility.TryGet<IPayload>(instance, out var dat))
+                    NetCodeMessenger.Instance.ClientSpawnObject(original, instance, dat);
                 return;
             }
             Debug.LogError($"Error: Unable to spawn {original.name} on the network. Ensure the object has been added to the NetworkObjectPool.");

@@ -24,18 +24,25 @@ namespace GreedyVox.NetCode.Objects
         /// </summary>
         protected override void Awake()
         {
-            base.Awake();
             m_TrajectoryObject = gameObject.GetCachedComponent<TrajectoryObject>();
+            base.Awake();
         }
         /// <summary>
-        /// Initialize the default data values.
+        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
         /// </summary>
-        private void Start()
+        /// <param name="id">The id used to differentiate this projectile from others.</param>
+        /// <param name="owner">The object that instantiated the trajectory object.</param>
+        public void Initialize(uint id, GameObject own) { }
+        /// <summary>
+        /// The cloned object. This will be called from the object that was spawned.
+        /// </summary>
+        /// <param name="go">The object that instantiated.</param>
+        public void Clone(GameObject go)
         {
-            var net = m_TrajectoryObject?.Owner.GetCachedComponent<NetworkObject>();
             m_Data = new PayloadItemPickup()
             {
-                OwnerID = net == null ? -1L : (long)net.OwnerClientId,
+                Position = go.transform.position,
+                Rotation = go.transform.rotation,
                 ItemCount = m_ItemDefinitionAmounts.Length,
                 ItemID = GetArrayDataIDs(m_ItemDefinitionAmounts),
                 ItemAmounts = GetArrayDataAmounts(m_ItemDefinitionAmounts),
@@ -44,11 +51,11 @@ namespace GreedyVox.NetCode.Objects
             };
         }
         /// <summary>
-        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
+        /// Extracts the <c>Amount</c> values from an array of <see cref="ItemIdentifierAmount"/> objects
+        /// and returns them as an array of integers.
         /// </summary>
-        /// <param name="id">The id used to differentiate this projectile from others.</param>
-        /// <param name="owner">The object that instantiated the trajectory object.</param>
-        public void Initialize(uint id, GameObject own) { }
+        /// <param name="items">An array of <see cref="ItemIdentifierAmount"/> objects to extract amounts from.</param>
+        /// <returns>An array of integers representing the <c>Amount</c> of each item in the input array.</returns>
         private int[] GetArrayDataAmounts(ItemIdentifierAmount[] items)
         {
             var dat = new int[items.Length];
@@ -56,6 +63,12 @@ namespace GreedyVox.NetCode.Objects
                 dat[i] = items[i].Amount;
             return dat;
         }
+        /// <summary>
+        /// Retrieves an array of item type IDs from the provided array of <see cref="ItemIdentifierAmount"/>.
+        /// Each ID corresponds to the <see cref="ItemType.ID"/> of the <see cref="ItemIdentifier"/> in the input array.
+        /// </summary>
+        /// <param name="items">An array of <see cref="ItemIdentifierAmount"/> objects to extract IDs from.</param>
+        /// <returns>An array of <see cref="uint"/> containing the IDs of the item types.</returns>
         private uint[] GetArrayDataIDs(ItemIdentifierAmount[] items)
         {
             var dat = new uint[items.Length];
@@ -70,7 +83,8 @@ namespace GreedyVox.NetCode.Objects
         {
             return
             FastBufferWriter.GetWriteSize<int>() +
-            FastBufferWriter.GetWriteSize(m_Data.OwnerID) +
+            FastBufferWriter.GetWriteSize(m_Data.Position) +
+            FastBufferWriter.GetWriteSize(m_Data.Rotation) +
             FastBufferWriter.GetWriteSize(m_Data.ItemCount) +
             FastBufferWriter.GetWriteSize(m_Data.Torque) +
             FastBufferWriter.GetWriteSize(m_Data.Velocity) +
@@ -103,11 +117,12 @@ namespace GreedyVox.NetCode.Objects
         public void PayLoad(in FastBufferReader reader, GameObject go = default)
         {
             reader.ReadValueSafe(out m_Data);
-            // Return the old.
+            transform.position = m_Data.Position;
+            transform.rotation = m_Data.Rotation;
             for (int i = 0; i < m_ItemDefinitionAmounts.Length; i++)
                 GenericObjectPool.Return(m_ItemDefinitionAmounts[i]);
             // Setup the item counts.
-            var length = (m_Data.ItemCount - (m_TrajectoryObject != null ? 2 : 0)) / 2;
+            var length = m_Data.ItemCount;
             if (m_ItemDefinitionAmounts.Length != length)
                 m_ItemDefinitionAmounts = new ItemIdentifierAmount[length];
             for (int n = 0; n < length; n++)
@@ -119,10 +134,7 @@ namespace GreedyVox.NetCode.Objects
             {
                 var velocity = m_Data.Velocity;
                 var torque = m_Data.Torque;
-                GameObject originator = null;
-                if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue((ulong)m_Data.OwnerID, out var obj))
-                    originator = obj.gameObject;
-                m_TrajectoryObject.Initialize(velocity, torque, originator);
+                m_TrajectoryObject.Initialize(velocity, torque, go);
             }
         }
     }

@@ -17,6 +17,7 @@ using Opsive.Shared.Utility;
 using Opsive.UltimateCharacterController.Items.Actions.Modules.Throwable;
 using Opsive.UltimateCharacterController.Items;
 using Opsive.UltimateCharacterController.Items.Actions.Modules.Magic;
+using Opsive.UltimateCharacterController.Networking.Inventory;
 
 /// <summary>
 /// The NetCode Character component manages the RPCs and state of the character on the network.
@@ -24,7 +25,7 @@ using Opsive.UltimateCharacterController.Items.Actions.Modules.Magic;
 namespace GreedyVox.NetCode.Character
 {
     [DisallowMultipleComponent]
-    public class NetCodeCharacter : NetworkBehaviour, INetworkCharacter
+    public class NetCodeCharacter : NetworkBehaviour, INetworkCharacterInventory, INetworkCharacter
     {
         private UltimateCharacterLocomotion m_CharacterLocomotion;
         private ModelManager m_ModelManager;
@@ -928,11 +929,11 @@ namespace GreedyVox.NetCode.Character
         /// <param name="invokedBitmask">The bitmask of the invoked modules.</param>
         /// <param name="state">Specifies the state of the cast.</param>
         /// <param name="data">The data being sent to the module.</param>
-        public void InvokeMagicCastEffectsModules(CharacterItemAction itemAction, ActionModuleGroupBase moduleGroup, int invokedBitmask, INetworkCharacter.CastEffectState state, MagicUseDataStream data)
+        public void InvokeMagicCastEffectsModules(CharacterItemAction itemAction, ActionModuleGroupBase moduleGroup, int invokedBitmask, INetworkCharacterInventory.CastEffectState state, MagicUseDataStream data)
         {
-            var originTransform = NetCodeUtility.GetID(data.CastData.CastOrigin?.gameObject, out var originTransformSlotID);
+            var (ID, _) = NetCodeUtility.GetID(data.CastData.CastOrigin?.gameObject, out var originTransformSlotID);
             InvokeMagicCastEffectsModulesRpc(itemAction.CharacterItem.SlotID, itemAction.ID, moduleGroup.ID, invokedBitmask, (short)state,
-            data.CastData.CastID, data.CastData.StartCastTime, originTransform.ID, originTransformSlotID, data.CastData.CastPosition,
+            data.CastData.CastID, data.CastData.StartCastTime, ID, originTransformSlotID, data.CastData.CastPosition,
             data.CastData.CastNormal, data.CastData.Direction, data.CastData.CastTargetPosition);
         }
         /// <summary>
@@ -947,8 +948,8 @@ namespace GreedyVox.NetCode.Character
         private void InvokeMagicCastEffectsModulesRpc(int slotID, int actionID, int moduleGroupID, int invokedBitmask, short state, uint castID, float startCastTime,
                                                       ulong originTransformID, int originTransformSlotID, Vector3 castPosition, Vector3 castNormal, Vector3 direction, Vector3 castTargetPosition)
         {
-            var moduleGroup = GetModuleGroup(slotID, actionID, moduleGroupID) as ActionModuleGroup<MagicCastEffectModule>;
-            if (moduleGroup == null || moduleGroup.ModuleCount == 0) return;
+            if (GetModuleGroup(slotID, actionID, moduleGroupID) is not ActionModuleGroup<MagicCastEffectModule> moduleGroup
+            || moduleGroup.ModuleCount == 0) return;
             var data = GenericObjectPool.Get<MagicUseDataStream>();
             data.CastData ??= new MagicCastData();
             // The action will be the same across all modules.
@@ -967,15 +968,15 @@ namespace GreedyVox.NetCode.Character
                 // Not all modules are invoked.
                 if ((moduleGroup.Modules[i].ID & invokedBitmask) == 0)
                     continue;
-                switch ((INetworkCharacter.CastEffectState)state)
+                switch ((INetworkCharacterInventory.CastEffectState)state)
                 {
-                    case INetworkCharacter.CastEffectState.Start:
+                    case INetworkCharacterInventory.CastEffectState.Start:
                         moduleGroup.Modules[i].StartCast(data);
                         break;
-                    case INetworkCharacter.CastEffectState.Update:
+                    case INetworkCharacterInventory.CastEffectState.Update:
                         moduleGroup.Modules[i].OnCastUpdate(data);
                         break;
-                    case INetworkCharacter.CastEffectState.End:
+                    case INetworkCharacterInventory.CastEffectState.End:
                         moduleGroup.Modules[i].StopCast();
                         break;
                 }

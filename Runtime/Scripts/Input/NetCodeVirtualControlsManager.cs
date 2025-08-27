@@ -1,5 +1,5 @@
 using Opsive.Shared.Events;
-using Opsive.Shared.Input.VirtualControls;
+using Opsive.Shared.Input.InputManager.VirtualControls;
 using Unity.Netcode;
 
 namespace GreedyVox.NetCode.Inputs

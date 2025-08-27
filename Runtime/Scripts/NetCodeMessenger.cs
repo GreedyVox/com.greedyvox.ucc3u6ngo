@@ -63,8 +63,8 @@ namespace GreedyVox.NetCode
                     if (TryGetNetworkPoolObject(idx, out var go))
                     {
                         var spawn = ObjectPoolBase.Instantiate(go);
-                        spawn?.GetComponent<IPayload>()?.PayLoad(reader);
                         NetCodeObjectPool.NetworkSpawn(go, spawn, true);
+                        spawn?.GetComponent<IPayload>()?.PayLoad(reader, go);
                     }
                 });
             }
@@ -72,10 +72,11 @@ namespace GreedyVox.NetCode
         /// <summary>
         /// Listening for client side network pooling calls, then forwards message to spawn the object.
         /// </summary>
-        public void ClientSpawnObject(GameObject go, IPayload dat)
+        public void ClientSpawnObject(GameObject org, GameObject go, IPayload dat)
         {
+            dat.Clone(go);
             // Client sending custom message to the server using the NetCode Messagenger.
-            if (TryGetNetworkPoolObjectIndex(go, out var idx) && dat.PayLoad(ref idx, out var writer))
+            if (TryGetNetworkPoolObjectIndex(org, out var idx) && dat.PayLoad(ref idx, out var writer))
                 m_CustomMessagingManager?.SendNamedMessage(MsgServerNameSpawn,
                 NetworkManager.ServerClientId, writer, NetworkDelivery.Reliable);
         }
