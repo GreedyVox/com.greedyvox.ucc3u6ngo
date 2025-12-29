@@ -21,7 +21,7 @@
   "type": "tool",
   "dependencies": {
     "com.unity.netcode.gameobjects": "2.3.1",
-    "com.opsive.shared": "2.0.0",
-    "com.opsive.ultimatecharactercontroller": "3.2.2"
+    "com.opsive.shared": "2.1.0",
+    "com.opsive.ultimatecharactercontroller": "3.3.3"
   }
 }

@@ -36,7 +36,7 @@ namespace GreedyVox.NetCode.Game
         public virtual void SetupSpawnManager(GameObject go, bool pool = true)
         {
             if (ComponentUtility.HasComponent<NetworkObject>(go))
-                InjectSpawnManager(new NetCodeSpawnInstance(go, pool), go);
+                InjectSpawnManager(new NetCodeSpawnInstance(go), go);
         }
         /// <summary>
         /// Injects multiple GameObjects into the pool manager for networked spawning.

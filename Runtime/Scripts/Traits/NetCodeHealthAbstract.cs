@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GreedyVox.NetCode.Utilities;
 using Opsive.Shared.Game;
 using Opsive.Shared.Utility;
@@ -18,10 +19,12 @@ namespace GreedyVox.NetCode.Traits
     [DisallowMultipleComponent]
     public abstract class NetCodeHealthAbstract : NetworkBehaviour, INetworkHealthMonitor
     {
-        protected Health m_Health;
+        [Tooltip("Spawn objects on death over the network.")]
+        [field: SerializeField] public List<NetworkBehaviour> SpawnNetworkObjectsOnDeath = new();
+        protected NetworkObject m_NetCodeObject;
         protected InventoryBase m_Inventory;
         protected GameObject m_GamingObject;
-        protected NetworkObject m_NetCodeObject;
+        protected Health m_Health;
         /// <summary>
         /// Initializes the default values.
         /// </summary>
@@ -114,7 +117,7 @@ namespace GreedyVox.NetCode.Traits
         /// <param name="hitItemSlotID">If the hit collider is an item then the slot ID of the item will be specified.</param>
         /// 
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
-        protected virtual void DamageRpc(float amount, Vector3 position, Vector3 direction, float forceMagnitude, int frames, float radius,
+        protected void DamageRpc(float amount, Vector3 position, Vector3 direction, float forceMagnitude, int frames, float radius,
         NetworkObjectReference sourceNetworkObject, uint sourceItemIdentifierID, int sourceSlotID, int sourceItemActionID, ulong hitColliderID, int hitItemSlotID)
         {
             IDamageSource source = null;
@@ -170,7 +173,7 @@ namespace GreedyVox.NetCode.Traits
         /// <param name="attackerID">The NetworkObject ID of the GameObject that killed the object.</param>
         /// 
         [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
-        protected virtual void DieRpc(Vector3 position, Vector3 force, NetworkObjectReference obj)
+        protected void DieRpc(Vector3 position, Vector3 force, NetworkObjectReference obj)
         {
             obj.TryGet(out var attacker);
             m_Health.Die(position, force, attacker?.gameObject);
@@ -185,6 +188,24 @@ namespace GreedyVox.NetCode.Traits
         /// </summary>
         /// <param name="amount">The amount of health or shield to add.</param>
         [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
-        protected virtual void HealRpc(float amount) => m_Health.Heal(amount);
+        protected void HealRpc(float amount) => m_Health.Heal(amount);
+        /// <summary>
+        /// Destroys the GameObject by despawning it
+        /// </summary>
+        public virtual void Destory()
+        {
+            if (IsServer)
+            {
+                if (m_NetCodeObject.IsSpawned)
+                    m_NetCodeObject.Despawn();
+                return;
+            }
+            DestoryRpc();
+        }
+        /// <summary>
+        /// Destroys the GameObject by despawning it
+        /// </summary>
+        [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
+        protected void DestoryRpc() => Destory();
     }
 }

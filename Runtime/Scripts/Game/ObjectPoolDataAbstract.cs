@@ -7,7 +7,7 @@ namespace GreedyVox.NetCode.Game
 {
     public abstract class ObjectPoolDataAbstract : ScriptableObject
     {
-        public abstract INetworkPrefabInstanceHandler GetNetworkPrefabInstanceHandler(GameObject go, bool pool = true);
+        public abstract INetworkPrefabInstanceHandler GetNetworkPrefabInstanceHandler(GameObject go);
         [field: SerializeField] public PreloadedPrefab[] SpawnablePrefabs { get; protected set; }
         protected virtual bool TryGetGameObject(PreloadedPrefab fab, out GameObject go) => (go = fab.Prefab) != null;
         /// <summary>

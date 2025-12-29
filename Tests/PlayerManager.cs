@@ -1,4 +1,6 @@
 using System.Collections;
+using Opsive.Shared.Events;
+using Opsive.UltimateCharacterController.Camera;
 using Opsive.UltimateCharacterController.Character;
 using Opsive.UltimateCharacterController.Traits;
 using Unity.Netcode;
@@ -30,7 +32,12 @@ namespace GreedyVox.NetCode.Tests
             StartCoroutine(InitializePlayer());
             base.OnNetworkSpawn();
         }
-        private void SwitchModels(int idx) => PlayerModel.ActiveModel = PlayerModel?.AvailableModels[GetModelIndex(idx)];
+        private void SwitchModels(int idx)
+        {
+            PlayerModel.ActiveModel = PlayerModel?.AvailableModels[GetModelIndex(idx)];
+            if (Camera.main.gameObject?.TryGetComponent(out CameraController cam) ?? false)
+                EventHandler.ExecuteEvent<ILookSource>(PlayerModel?.gameObject, "OnCharacterAttachLookSource", cam);
+        }
         private int GetModelIndex(int idx) => Mathf.Abs(idx % PlayerModelCount);
         public void RespawnPlayer()
         {

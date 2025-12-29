@@ -26,8 +26,10 @@ namespace GreedyVox.NetCode.Traits
                 if (TryGetComponent(out Respawner com)
                 && (com.ScheduleRespawnOnDeath || com.ScheduleRespawnOnDisable))
                     return;
-                if (m_NetCodeObject == null)
-                    ObjectPool.Destroy(m_GamingObject);
+                if (TryGetComponent(out NetCodeDespawner net))
+                    net.Despawn();
+                else if (m_NetCodeObject == null)
+                    ObjectPoolBase.Destroy(m_GamingObject);
                 else NetCodeObjectPool.Destroy(m_GamingObject);
             }
         }
@@ -41,19 +43,28 @@ namespace GreedyVox.NetCode.Traits
             // Spawn any objects on death, such as an explosion if the object is an explosive barrel.
             if (SpawnedObjectsOnDeath != null)
             {
+                GameObject go;
                 for (int n = 0; n < SpawnedObjectsOnDeath.Count; n++)
                 {
-                    var go = SpawnedObjectsOnDeath[n];
-                    var obj = ObjectPool.Instantiate(go, transform.position, transform.rotation);
+                    var obj = SpawnedObjectsOnDeath[n];
                     if (obj == null || obj.GetComponent<NetworkObject>() == null)
                     {
                         Debug.LogError($"Spawning Obect {obj} over network requires having the NetCodeObject component.");
                         continue;
                     }
-                    NetworkObjectPool.NetworkSpawn(go, obj, true);
-                    if (obj.TryGetComponent(out Explosion exp))
+                    if (ObjectPoolBase.IsPooledObject(obj))
+                    {
+                        go = ObjectPoolBase.Instantiate(obj, transform.position, transform.rotation);
+                        NetworkObjectPool.NetworkSpawn(obj, go, true);
+                    }
+                    else
+                    {
+                        go = Instantiate(obj, transform.position, transform.rotation);
+                        if (go.TryGetComponent(out NetworkObject net)) net.Spawn();
+                    }
+                    if (go.TryGetComponent(out Explosion exp))
                         exp.Explode(gameObject);
-                    var rigs = obj.GetComponentsInChildren<Rigidbody>();
+                    var rigs = go.GetComponentsInChildren<Rigidbody>();
                     for (int i = 0; i < rigs.Length; i++)
                         rigs[i].AddForceAtPosition(force, position);
                 }

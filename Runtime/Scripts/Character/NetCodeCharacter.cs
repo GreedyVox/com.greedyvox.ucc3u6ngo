@@ -18,6 +18,7 @@ using Opsive.UltimateCharacterController.Items.Actions.Modules.Throwable;
 using Opsive.UltimateCharacterController.Items;
 using Opsive.UltimateCharacterController.Items.Actions.Modules.Magic;
 using Opsive.UltimateCharacterController.Networking.Inventory;
+using Opsive.Shared.Inventory;
 
 /// <summary>
 /// The NetCode Character component manages the RPCs and state of the character on the network.
@@ -284,11 +285,11 @@ namespace GreedyVox.NetCode.Character
         /// <summary>
         /// Equips or unequips the item with the specified ItemIdentifier and slot.
         /// </summary>
-        /// <param name="itemIdentifierID">The ID of the ItemIdentifier that should be equipped.</param>
+        /// <param name="itemIdentifier">The ItemIdentifier that should be equipped.</param>
         /// <param name="slotID">The slot of the item that should be equipped.</param>
         /// <param name="equip">Should the item be equipped? If false it will be unequipped.</param>
-        public void EquipUnequipItem(uint itemIdentifierID, int slotID, bool equip) =>
-        EquipUnequipItemRpc(itemIdentifierID, slotID, equip, RpcTarget.NotOwner);
+        public void EquipUnequipItem(IItemIdentifier itemIdentifier, int slotID, bool equip) =>
+        EquipUnequipItemRpc(itemIdentifier.ID, slotID, equip, RpcTarget.NotOwner);
         /// <summary>
         /// Equips or unequips the item on the network with the specified ItemIdentifier and slot.
         /// </summary>
@@ -326,13 +327,13 @@ namespace GreedyVox.NetCode.Character
         /// <summary>
         /// The ItemIdentifier has been picked up.
         /// </summary>
-        /// <param name="itemIdentifierID">The ID of the ItemIdentifier that was picked up.</param>
-        /// <param name="amount">The number of ItemIdentifier picked up.</param>
+        /// <param name="itemIdentifier">The ItemIdentifier that was picked up.</param>
         /// <param name="slotID">The ID of the slot which the item belongs to.</param>
+        /// <param name="amount">The number of ItemIdentifier picked up.</param>
         /// <param name="immediatePickup">Was the item be picked up immediately?</param>
         /// <param name="forceEquip">Should the item be force equipped?</param>
-        public void ItemIdentifierPickup(uint itemIdentifierID, int slotID, int amount, bool immediatePickup, bool forceEquip) =>
-        ItemIdentifierPickupRpc(itemIdentifierID, slotID, amount, immediatePickup, forceEquip);
+        public void ItemIdentifierPickup(IItemIdentifier itemIdentifier, int slotID, int amount, bool immediatePickup, bool forceEquip) =>
+        ItemIdentifierPickupRpc(itemIdentifier.ID, slotID, amount, immediatePickup, forceEquip);
         /// <summary>
         /// The ItemIdentifier has been picked up on the network.
         /// </summary>
@@ -351,14 +352,14 @@ namespace GreedyVox.NetCode.Character
         /// <summary>
         /// Remove an item amount from the inventory.
         /// </summary>
-        /// <param name="itemIdentifierID">The ID of the ItemIdentifier that was removed.</param>
+        /// <param name="itemIdentifier">The ItemIdentifier that was removed.</param>
         /// <param name="slotID">The ID of the slot which the item belongs to.</param>
         /// <param name="amount">The amount of ItemIdentifier to adjust.</param>
         /// <param name="drop">Should the item be dropped?</param>
         /// <param name="removeCharacterItem">Should the character item be removed?</param>
         /// <param name="destroyCharacterItem">Should the character item be destroyed?</param>
-        public void RemoveItemIdentifierAmount(uint itemIdentifierID, int slotID, int amount, bool drop, bool removeCharacterItem, bool destroyCharacterItem) =>
-        RemoveItemIdentifierAmountRpc(itemIdentifierID, slotID, amount, drop, removeCharacterItem, destroyCharacterItem);
+        public void RemoveItemIdentifierAmount(IItemIdentifier itemIdentifier, int slotID, int amount, bool drop, bool removeCharacterItem, bool destroyCharacterItem) =>
+        RemoveItemIdentifierAmountRpc(itemIdentifier.ID, slotID, amount, drop, removeCharacterItem, destroyCharacterItem);
         /// <summary>
         /// Remove an item amount from the inventory on the network.
         /// </summary>

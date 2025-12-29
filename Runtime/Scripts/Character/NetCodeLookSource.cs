@@ -21,7 +21,7 @@ namespace GreedyVox.NetCode.Character
         private Transform m_Transform;
         private GameObject m_GameObject;
         private ILookSource m_LookSource;
-        private NetCodeManager m_NetworkManager;
+        private NetCodeManager m_NetworkingManager;
         private FastBufferWriter m_FastBufferWriter;
         private string m_MsgNameClient, m_MsgNameServer;
         private float m_NetworkLookDirectionDistance = 1;
@@ -53,7 +53,7 @@ namespace GreedyVox.NetCode.Character
             m_Transform = transform;
             m_GameObject = gameObject;
             m_MaxBufferSize = MaxBufferSize();
-            m_NetworkManager = NetCodeManager.Instance;
+            m_NetworkingManager = NetCodeManager.Instance;
             m_NetworkLookPosition = m_NetworkTargetLookPosition = m_Transform.position;
             m_NetworkLookDirection = m_NetworkTargetLookDirection = m_Transform.forward;
             m_CharacterLocomotion = m_GameObject.GetCachedComponent<UltimateCharacterLocomotion>();
@@ -86,9 +86,9 @@ namespace GreedyVox.NetCode.Character
         {
             m_CustomMessagingManager?.UnregisterNamedMessageHandler(m_MsgNameServer);
             m_CustomMessagingManager?.UnregisterNamedMessageHandler(m_MsgNameClient);
-            m_NetworkManager.NetworkSettings.NetworkSyncServerEvent -= OnNetworkSyncServerEvent;
-            m_NetworkManager.NetworkSettings.NetworkSyncClientEvent -= OnNetworkSyncClientEvent;
-            m_NetworkManager.NetworkSettings.NetworkSyncUpdateEvent -= OnNetworkSyncUpdateEvent;
+            m_NetworkingManager.NetworkSettings.NetworkSyncServerEvent -= OnNetworkSyncServerEvent;
+            m_NetworkingManager.NetworkSettings.NetworkSyncClientEvent -= OnNetworkSyncClientEvent;
+            m_NetworkingManager.NetworkSettings.NetworkSyncUpdateEvent -= OnNetworkSyncUpdateEvent;
             base.OnNetworkDespawn();
         }
         /// <summary>
@@ -102,14 +102,14 @@ namespace GreedyVox.NetCode.Character
             m_CustomMessagingManager = NetworkManager.Singleton.CustomMessagingManager;
 
             if (IsServer)
-                m_NetworkManager.NetworkSettings.NetworkSyncServerEvent += OnNetworkSyncServerEvent;
+                m_NetworkingManager.NetworkSettings.NetworkSyncServerEvent += OnNetworkSyncServerEvent;
             else if (IsOwner)
-                m_NetworkManager.NetworkSettings.NetworkSyncClientEvent += OnNetworkSyncClientEvent;
+                m_NetworkingManager.NetworkSettings.NetworkSyncClientEvent += OnNetworkSyncClientEvent;
             else OnNetworkSyncEventRpc();
 
             if (!IsOwner)
             {
-                m_NetworkManager.NetworkSettings.NetworkSyncUpdateEvent += OnNetworkSyncUpdateEvent;
+                m_NetworkingManager.NetworkSettings.NetworkSyncUpdateEvent += OnNetworkSyncUpdateEvent;
                 m_CustomMessagingManager?.RegisterNamedMessageHandler(IsServer ? m_MsgNameServer : m_MsgNameClient, (sender, reader) =>
                 { SerializeView(ref reader); });
             }
@@ -174,7 +174,7 @@ namespace GreedyVox.NetCode.Character
         /// </summary>
         private void OnNetworkSyncUpdateEvent()
         {
-            var serializationRate = m_NetworkManager.NetworkSettings.SyncRateClient * m_RemoteInterpolationMultiplayer;
+            var serializationRate = m_NetworkingManager.NetworkSettings.SyncRateClient * m_RemoteInterpolationMultiplayer;
             m_NetworkLookDirectionDistance = Mathf.MoveTowards(m_NetworkLookDirectionDistance, m_NetworkTargetLookDirectionDistance,
                 Mathf.Abs(m_NetworkTargetLookDirectionDistance - m_NetworkLookDirectionDistance) * serializationRate);
             m_NetworkPitch = Mathf.MoveTowards(m_NetworkPitch, m_NetworkTargetPitch, Mathf.Abs(m_NetworkTargetPitch - m_NetworkPitch) * serializationRate);

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using GreedyVox.NetCode.Character;
+﻿using GreedyVox.NetCode.Character;
 using GreedyVox.NetCode.Traits;
 using GreedyVox.NetCode.Utilities;
 using Opsive.UltimateCharacterController.Character;

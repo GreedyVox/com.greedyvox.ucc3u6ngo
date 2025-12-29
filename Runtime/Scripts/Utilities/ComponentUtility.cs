@@ -222,8 +222,11 @@ namespace GreedyVox.NetCode.Utilities
                     var item = items[i];
                     if (HasComponent<NetworkObject>(item))
                     {
-                        to.SpawnedObjectsOnDeath.Add(item);
-                        items.RemoveAt(i);
+                        if (item.TryGetComponent(out NetworkBehaviour nb))
+                        {
+                            to.SpawnNetworkObjectsOnDeath.Add(nb);
+                            items.RemoveAt(i);
+                        }
                     }
                 }
                 from.SpawnedObjectsOnDeath = items.ToArray();
