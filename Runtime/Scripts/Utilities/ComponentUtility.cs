@@ -224,7 +224,7 @@ namespace GreedyVox.NetCode.Utilities
                     {
                         if (item.TryGetComponent(out NetworkBehaviour nb))
                         {
-                            to.SpawnNetworkObjectsOnDeath.Add(nb);
+                            to.SpawnObjectsOnDeath.Add(nb);
                             items.RemoveAt(i);
                         }
                     }

@@ -1,5 +1,4 @@
 using Opsive.Shared.Game;
-using Opsive.UltimateCharacterController.Networking.Traits;
 using Opsive.UltimateCharacterController.Objects.CharacterAssist;
 using Opsive.UltimateCharacterController.Traits.Damage;
 using UnityEngine;
@@ -9,6 +8,8 @@ using UnityEngine;
 /// </summary>
 namespace GreedyVox.NetCode.Objects
 {
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(NetCodeInfo))]
     public class NetCodeHealthPickup : ObjectPickup
     {
         [Tooltip("The amount of health to replenish.")]
@@ -29,12 +30,9 @@ namespace GreedyVox.NetCode.Objects
         public override void DoPickup(GameObject target)
         {
             var damage = target.GetCachedParentComponent<IDamageTarget>();
-            var health = target.GetCachedParentComponent<INetworkHealthMonitor>();
-            if (damage != null && damage.IsAlive() && health != null)
-            {
-                health?.Heal(m_HealthAmount);
-                if (m_AlwaysPickup) ObjectPickedUp(damage.Owner);
-            }
+            if ((damage != null && damage.IsAlive()
+            && damage.Heal(m_HealthAmount)) || m_AlwaysPickup)
+                ObjectPickedUp(damage.Owner);
         }
     }
 }

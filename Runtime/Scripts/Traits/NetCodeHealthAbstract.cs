@@ -20,7 +20,7 @@ namespace GreedyVox.NetCode.Traits
     public abstract class NetCodeHealthAbstract : NetworkBehaviour, INetworkHealthMonitor
     {
         [Tooltip("Spawn objects on death over the network.")]
-        [field: SerializeField] public List<NetworkBehaviour> SpawnNetworkObjectsOnDeath = new();
+        [field: SerializeField] public List<NetworkBehaviour> SpawnObjectsOnDeath = new();
         protected NetworkObject m_NetCodeObject;
         protected InventoryBase m_Inventory;
         protected GameObject m_GamingObject;
@@ -188,7 +188,7 @@ namespace GreedyVox.NetCode.Traits
         /// </summary>
         /// <param name="amount">The amount of health or shield to add.</param>
         [Rpc(SendTo.NotMe, Delivery = RpcDelivery.Reliable)]
-        protected void HealRpc(float amount) => m_Health.Heal(amount);
+        protected void HealRpc(float amount) => m_Health?.Heal(amount);
         /// <summary>
         /// Destroys the GameObject by despawning it
         /// </summary>

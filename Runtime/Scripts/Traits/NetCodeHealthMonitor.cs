@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using GreedyVox.NetCode.Game;
+﻿using GreedyVox.NetCode.Game;
 using Opsive.Shared.Game;
 using Opsive.UltimateCharacterController.Networking.Game;
 using Opsive.UltimateCharacterController.Objects;
@@ -15,14 +14,12 @@ namespace GreedyVox.NetCode.Traits
     [DisallowMultipleComponent]
     public class NetCodeHealthMonitor : NetCodeHealthAbstract
     {
-        [Tooltip("Spawn objects on death over the network.")]
-        [field: SerializeField] public List<GameObject> SpawnedObjectsOnDeath = new();
         public override void Die(Vector3 position, Vector3 force, GameObject attacker)
         {
             base.Die(position, force, attacker);
             if (IsServer)
             {
-                SpawnObjectsOnDeath(position, force);
+                SpawningObjectsOnDeath(position, force);
                 if (TryGetComponent(out Respawner com)
                 && (com.ScheduleRespawnOnDeath || com.ScheduleRespawnOnDisable))
                     return;
@@ -38,20 +35,17 @@ namespace GreedyVox.NetCode.Traits
         /// <param name="position">The position of the damage.</param>
         /// <param name="direction">The direction that the object took damage from.</param>
         /// </summary>
-        protected virtual void SpawnObjectsOnDeath(Vector3 position, Vector3 force)
+        protected virtual void SpawningObjectsOnDeath(Vector3 position, Vector3 force)
         {
             // Spawn any objects on death, such as an explosion if the object is an explosive barrel.
-            if (SpawnedObjectsOnDeath != null)
+            if (SpawnObjectsOnDeath != null)
             {
                 GameObject go;
-                for (int n = 0; n < SpawnedObjectsOnDeath.Count; n++)
+                for (int n = 0; n < SpawnObjectsOnDeath.Count; n++)
                 {
-                    var obj = SpawnedObjectsOnDeath[n];
-                    if (obj == null || obj.GetComponent<NetworkObject>() == null)
-                    {
-                        Debug.LogError($"Spawning Obect {obj} over network requires having the NetCodeObject component.");
-                        continue;
-                    }
+                    var spawn = SpawnObjectsOnDeath[n];
+                    if (spawn == null) continue;
+                    var obj = spawn.gameObject;
                     if (ObjectPoolBase.IsPooledObject(obj))
                     {
                         go = ObjectPoolBase.Instantiate(obj, transform.position, transform.rotation);
