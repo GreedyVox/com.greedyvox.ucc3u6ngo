@@ -80,12 +80,14 @@ namespace GreedyVox.NetCode.Editors
                 ShowNotification(new GUIContent($"Error while replacing the component {typeof(Grenade)} with {typeof(NetCodeGrenade)}",
                                      EditorGUIUtility.IconContent(IconErrorPath).image), 15);
             if (ComponentUtility.HasComponent<AttributeManager>(go))
+            {
                 ComponentUtility.TryAddComponent<NetCodeAttributeMonitor>(go);
-            if (ComponentUtility.TryAddGetComponent(go, out Health from)
-            && ComponentUtility.TryAddComponent(go, out NetCodeHealthMonitor to)
-            && !ComponentUtility.TryCopyNetworkedSpawnedObjects(from, to))
-                Debug.LogError($"Error copying networked spawned objects from {from} to {to}. " +
-                "Ensure that the Health component is properly set up with the NetCodeHealthMonitor component.");
+                if (ComponentUtility.TryAddGetComponent(go, out Health from)
+                && ComponentUtility.TryAddComponent(go, out NetCodeHealthMonitor to)
+                && !ComponentUtility.TryCopyNetworkedSpawnedObjects(from, to))
+                    Debug.LogError($"Error copying networked spawned objects from {from} to {to}. " +
+                    "Ensure that the Health component is properly set up with the NetCodeHealthMonitor component.");
+            }
         }
     }
 }

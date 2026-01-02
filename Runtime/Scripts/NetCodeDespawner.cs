@@ -8,7 +8,7 @@ namespace GreedyVox.NetCode
     public class NetCodeDespawner : NetworkBehaviour
     {
         [Tooltip("The number of seconds until the object should be desapwned.")]
-        [SerializeField] private float m_DespawTimer = 5;
+        [SerializeField] private float m_DespawnTimer = 5;
         private ScheduledEventBase m_RemoveEvent;
         private NetworkObject m_NetCodeObject;
         /// <summary>
@@ -23,7 +23,7 @@ namespace GreedyVox.NetCode
         /// <param name="force">The amount of force which killed the object.</param>
         /// <param name="attacker">The GameObject that killed the object.</param>
         public void Despawn() =>
-        m_RemoveEvent = SchedulerBase.Schedule(m_DespawTimer, Remove);
+        m_RemoveEvent = SchedulerBase.Schedule(m_DespawnTimer, Remove);
         /// <summary>
         /// Cancels the remove event.
         /// </summary>

@@ -118,7 +118,7 @@ namespace GreedyVox.NetCode.Editors
             if (ComponentUtility.HasComponent<AttributeManager>(go))
                 ComponentUtility.TryAddComponent<NetCodeAttributeMonitor>(go);
             if (m_RemoverFound = ComponentUtility.TryRemoveComponent<Remover>(go))
-                ComponentUtility.TryAddComponent<NetCodeRemover>(go);
+                ComponentUtility.TryAddComponent<NetCodeDespawner>(go);
             if (ComponentUtility.HasComponent<Respawner>(go))
                 ComponentUtility.TryAddComponent<NetCodeRespawnerMonitor>(go);
             if (ComponentUtility.TryAddGetComponent(go, out Health from)
