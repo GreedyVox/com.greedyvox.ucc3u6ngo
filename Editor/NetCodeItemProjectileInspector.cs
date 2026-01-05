@@ -1,3 +1,4 @@
+using GreedyVox.NetCode;
 using GreedyVox.NetCode.Objects;
 using GreedyVox.NetCode.Traits;
 using GreedyVox.NetCode.Utilities;
@@ -8,14 +9,14 @@ using Unity.Netcode.Components;
 using UnityEditor;
 using UnityEngine;
 
-namespace GreedyVox.NetCode.Editors
+namespace YAARRGH.Battle.Island.Editors
 {
-    public class NetCodeItemGrenadeInspector : EditorWindow
+    public class NetCodeItemProjectileInspector : EditorWindow
     {
-        [MenuItem("Tools/GreedyVox/NetCode/Items/Grenade Inspector")]
-        private static NetCodeItemGrenadeInspector Init() =>
-        GetWindowWithRect<NetCodeItemGrenadeInspector>(
-        new Rect(Screen.width - 400 / 2, Screen.height - 100 / 2, 300, 600), true, "Network Grenade");
+        [MenuItem("Tools/GreedyVox/NetCode/Items/Projectile Inspector")]
+        private static NetCodeItemProjectileInspector Init() =>
+            GetWindowWithRect<NetCodeItemProjectileInspector>(
+            new Rect(Screen.width - 400 / 2, Screen.height - 100 / 2, 300, 600), true, "Network Projectile Item Inspector");
         private GUIContent m_ContentScript, m_ContentVariable;
         private Object m_NetworkItem;
         private const string IconErrorPath = "d_console.erroricon.sml";
@@ -27,12 +28,12 @@ namespace GreedyVox.NetCode.Editors
         }
         private void OnGUI()
         {
-            GUILayout.Box("GRENADE PREFAB", GUILayout.ExpandWidth(true));
+            GUILayout.Box("PROJECTILE PREFAB", GUILayout.ExpandWidth(true));
             EditorGUILayout.BeginHorizontal();
             m_NetworkItem = EditorGUILayout.ObjectField(m_NetworkItem, typeof(Object), true);
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space();
-            if (GUILayout.Button("Update Grenade"))
+            if (GUILayout.Button("Update Projectile"))
             {
                 if (m_NetworkItem == null)
                 {
@@ -49,7 +50,7 @@ namespace GreedyVox.NetCode.Editors
             EditorGUILayout.Space();
             EditorGUILayout.BeginVertical();
             GUILayout.Box(m_ContentScript, GUILayout.ExpandWidth(true));
-            GUILayout.Label("The NetCodeGrenade Script", EditorStyles.boldLabel);
+            GUILayout.Label("The NetCodeProjectile Script", EditorStyles.boldLabel);
             GUILayout.Box(m_ContentVariable, GUILayout.ExpandWidth(true));
             GUILayout.Label("The m_InitializeOnEnaunity symbol version 6.0ble Variable", EditorStyles.boldLabel);
             GUILayout.Box("The m_InitializeOnEnable variable on the NetCodeGrenade script, must be manually set to false for prevent overriding the projectile's position when spawning from the client.", GUILayout.ExpandWidth(true));
@@ -76,8 +77,8 @@ namespace GreedyVox.NetCode.Editors
             ComponentUtility.TryAddComponent<NetworkTransform>(go);
             ComponentUtility.TryAddComponent<NetCodeInfo>(go);
             ComponentUtility.TryAddComponent<NetCodeDestructibleMonitor>(go);
-            if (!ComponentUtility.TryReplaceCopy<Grenade, NetCodeGrenade>(go))
-                ShowNotification(new GUIContent($"Error while replacing the component {typeof(Grenade)} with {typeof(NetCodeGrenade)}",
+            if (!ComponentUtility.TryReplaceCopy<Projectile, NetCodeProjectile>(go))
+                ShowNotification(new GUIContent($"Error while replacing the component {typeof(Projectile)} with {typeof(NetCodeProjectile)}",
                                      EditorGUIUtility.IconContent(IconErrorPath).image), 15);
             if (ComponentUtility.HasComponent<AttributeManager>(go))
             {

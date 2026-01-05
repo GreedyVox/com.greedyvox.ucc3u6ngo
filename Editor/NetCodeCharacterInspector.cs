@@ -19,7 +19,7 @@ namespace GreedyVox.NetCode.Editors
         [MenuItem("Tools/GreedyVox/NetCode/Characters/Player Inspector")]
         private static NetCodeCharacterInspector Init() =>
         EditorWindow.GetWindowWithRect<NetCodeCharacterInspector>(
-        new Rect(Screen.width - 300 / 2, Screen.height - 200 / 2, 300, 200), true, "Network Character");
+        new Rect(Screen.width - 300 / 2, Screen.height - 200 / 2, 300, 600), true, "Network Character");
         private const string IconErrorPath = "d_console.erroricon.sml";
         private const string IconIfoPath = "d_console.infoicon.sml";
         private Object m_NetworkCharacter;

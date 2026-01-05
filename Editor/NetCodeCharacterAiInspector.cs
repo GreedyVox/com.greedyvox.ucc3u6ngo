@@ -27,7 +27,7 @@ namespace GreedyVox.NetCode.Editors
         [MenuItem("Tools/GreedyVox/NetCode/Characters/Ai Inspector")]
         private static NetCodeCharacterAiInspector Init() =>
         EditorWindow.GetWindowWithRect<NetCodeCharacterAiInspector>(
-        new Rect(Screen.width - 300 / 2, Screen.height - 200 / 2, 300, 200), true, "Network Character Ai");
+        new Rect(Screen.width - 300 / 2, Screen.height - 200 / 2, 300, 600), true, "Network Character Ai");
         private GUIStyle m_Style = new();
         private Object m_NetworkCharacter;
         private bool m_RemoverFound = false;
