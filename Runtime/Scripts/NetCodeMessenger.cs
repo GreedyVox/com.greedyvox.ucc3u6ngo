@@ -60,11 +60,12 @@ namespace GreedyVox.NetCode
                 m_CustomMessagingManager?.RegisterNamedMessageHandler(MsgServerNameSpawn, (sender, reader) =>
                 {
                     reader.ReadValueSafe(out int idx);
+                    reader.ReadValueSafe(out Vector3 pos);
                     if (TryGetNetworkPoolObject(idx, out var go))
                     {
-                        var spawn = ObjectPoolBase.Instantiate(go);
+                        var spawn = ObjectPoolBase.Instantiate(go, pos, Quaternion.identity);
                         NetCodeObjectPool.NetworkSpawn(go, spawn, true);
-                        spawn?.GetComponent<IPayload>()?.PayLoad(reader, go);
+                        spawn?.GetComponent<IPayload>()?.Payload(reader);
                     }
                 });
             }
@@ -74,9 +75,8 @@ namespace GreedyVox.NetCode
         /// </summary>
         public void ClientSpawnObject(GameObject org, GameObject go, IPayload dat)
         {
-            dat.Clone(go);
             // Client sending custom message to the server using the NetCode Messagenger.
-            if (TryGetNetworkPoolObjectIndex(org, out var idx) && dat.PayLoad(ref idx, out var writer))
+            if (TryGetNetworkPoolObjectIndex(org, out var idx) && dat.Payload(ref idx, out var writer))
                 m_CustomMessagingManager?.SendNamedMessage(MsgServerNameSpawn,
                 NetworkManager.ServerClientId, writer, NetworkDelivery.Reliable);
         }

@@ -1,5 +1,4 @@
-﻿using System;
-using GreedyVox.NetCode.Data;
+﻿using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Interfaces;
 using Opsive.Shared.Game;
 using Opsive.UltimateCharacterController.Items.Actions.Impact;
@@ -11,114 +10,116 @@ using UnityEngine;
 namespace GreedyVox.NetCode.Objects
 {
     /// <summary>
-    /// Initializes the grenade over the network.
+    /// Network-synchronized grenade implementation.
+    /// Handles authoritative payload generation, serialization,
+    /// and remote initialization.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject), typeof(NetCodeInfo))]
-    public class NetCodeGrenade : Grenade, IPayload
+    public class NetCodeGrenade : Grenade, IPayloadEvent, IPayload
     {
-        private const string m_StateName = "Grenade Network Impact";
-        private ImpactDamageData m_DamageData = new();
-        private PayloadGrenado m_Data;
         /// <summary>
-        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
+        /// Cached damage data instance reused across initialization.
         /// </summary>
-        /// <param name="id">The id used to differentiate this projectile from others.</param>
-        /// <param name="owner">The object that instantiated the trajectory object.</param>
-        public void Initialize(uint id, GameObject own)
+        private ImpactDamageData m_DamageData = new();
+        /// <summary>
+        /// Initializes the grenade locally on the authoritative side.
+        /// </summary>
+        /// <param name="id">Grenade identifier.</param>
+        /// <param name="owner">Owning GameObject.</param>
+        public void Initialize(uint id, GameObject owner)
         {
             InitializeComponentReferences();
-            Initialize(id, Vector3.zero, Vector3.zero, own, m_DamageData);
+            Initialize(id, Vector3.zero, Vector3.zero, owner, m_DamageData);
         }
         /// <summary>
-        /// The cloned object. This will be called from the object that was spawned.
+        /// Applies payload via boxed network-serializable dispatch.
         /// </summary>
-        /// <param name="go">The object that instantiated.</param>
-        public void Clone(GameObject go) { }
+        public bool Payload(INetworkSerializable data) => data is PayloadGrenado g && Payload(g);
         /// <summary>
-        /// Initialize the payload data values.
+        /// Produces payload as boxed network-serializable data.
         /// </summary>
-        private PayloadGrenado PayLoad()
+        public bool Payload(out INetworkSerializable data)
         {
-            return new PayloadGrenado()
+            data = Payload();
+            return true;
+        }
+        /// <summary>
+        /// Builds the authoritative grenade payload.
+        /// </summary>
+        public PayloadGrenado Payload()
+        {
+            return new PayloadGrenado
             {
                 OwnerID = m_ID,
-                Position = transform.position,
-                Rotation = transform.rotation,
                 Velocity = m_Velocity,
                 Torque = m_Torque,
                 ImpactFrames = m_ImpactDamageData.ImpactForceFrames,
                 ImpactLayers = m_ImpactLayers.value,
                 ImpactForce = m_ImpactDamageData.ImpactForce,
                 DamageAmount = m_ImpactDamageData.DamageAmount,
+                ImpactStateName = m_ImpactDamageData.ImpactStateName,
                 ImpactStateDisableTimer = m_ImpactDamageData.ImpactStateDisableTimer,
-                ScheduledDeactivation = m_ScheduledDeactivation != null ?
-                (m_ScheduledDeactivation.EndTime - Time.time) : -1.0f,
-                NetCodeObject = m_Owner.GetCachedComponent<NetworkObject>() ?? default
+                ScheduledDeactivation = m_ScheduledDeactivation != null ? m_ScheduledDeactivation.EndTime - Time.time : -1f,
+                Owner = m_Owner != null && m_Owner.TryGetComponent(out NetworkObject net) ? net : default
             };
         }
         /// <summary>
-        /// The object has been spawned, write the payload data.
+        /// Serializes grenade payload to a FastBufferWriter.
+        /// Caller is responsible for disposing the writer.
         /// </summary>
-        public bool PayLoad(ref int idx, out FastBufferWriter writer)
+        public bool Payload(ref int idx, out FastBufferWriter writer)
         {
-            try
-            {
-                using (writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp))
-                {
-                    writer.WriteValueSafe(idx);
-                    writer.WriteValueSafe(PayLoad());
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                NetworkLog.LogErrorServer($"{e.Message} [Length={writer.Length}/{writer.MaxCapacity}]");
-                return false;
-            }
+            writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp);
+            writer.WriteValueSafe(idx);
+            writer.WriteValueSafe(transform.position);
+            writer.WriteValueSafe(Payload());
+            return true;
         }
         /// <summary>
-        /// The object has been spawned, read the payload data.
+        /// Applies payload data and initializes grenade state.
         /// </summary>
-        public void PayLoad(in FastBufferReader reader, GameObject own = default)
+        public bool Payload(PayloadGrenado data)
         {
-            reader.ReadValueSafe(out m_Data);
-            if (m_Data.NetCodeObject.TryGet(out var net))
-                own = net.gameObject;
-            transform.position = m_Data.Position;
-            transform.rotation = m_Data.Rotation;
             m_DamageData ??= new ImpactDamageData();
-            m_DamageData.DamageAmount = m_Data.DamageAmount;
-            m_DamageData.ImpactForce = m_Data.ImpactForce;
-            m_DamageData.ImpactForceFrames = m_Data.ImpactFrames;
-            m_ImpactLayers = m_Data.ImpactLayers;
-            m_DamageData.ImpactStateName = m_StateName;
-            m_DamageData.ImpactStateDisableTimer = m_Data.ImpactStateDisableTimer;
-            Initialize(m_Data.OwnerID, m_Data.Velocity, m_Data.Torque, own, m_DamageData);
-            // The grenade should start cooking.
-            var deactivationTime = m_Data.ScheduledDeactivation;
-            if (deactivationTime > 0)
-                m_ScheduledDeactivation = Scheduler.Schedule(deactivationTime, Deactivate);
+            m_DamageData.DamageAmount = data.DamageAmount;
+            m_DamageData.ImpactForce = data.ImpactForce;
+            m_DamageData.ImpactForceFrames = data.ImpactFrames;
+            m_DamageData.ImpactStateName = data.ImpactStateName.ToString();
+            m_DamageData.ImpactStateDisableTimer = data.ImpactStateDisableTimer;
+            m_ImpactLayers = data.ImpactLayers;
+            Initialize(data.OwnerID, data.Velocity, data.Torque, data.Owner, m_DamageData);
+            if (data.ScheduledDeactivation > 0f)
+                m_ScheduledDeactivation = Scheduler.Schedule(data.ScheduledDeactivation, Deactivate);
+            return true;
         }
         /// <summary>
-        /// Returns the maximus size for the fast buffer writer
+        /// Deserializes grenade payload from a FastBufferReader.
+        /// </summary>
+        public void Payload(in FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out PayloadGrenado data);
+            Payload(data);
+        }
+        /// <summary>
+        /// Returns required buffer size for payload serialization.
         /// </summary>
         public int MaxBufferSize()
         {
             return
-            FastBufferWriter.GetWriteSize<int>() +
-            FastBufferWriter.GetWriteSize(m_Data.OwnerID) +
-            FastBufferWriter.GetWriteSize(m_Data.Position) +
-            FastBufferWriter.GetWriteSize(m_Data.Rotation) +
-            FastBufferWriter.GetWriteSize(m_Data.Velocity) +
-            FastBufferWriter.GetWriteSize(m_Data.Torque) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactFrames) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactLayers) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactForce) +
-            FastBufferWriter.GetWriteSize(m_Data.DamageAmount) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactStateDisableTimer) +
-            FastBufferWriter.GetWriteSize(m_Data.ScheduledDeactivation) +
-            FastBufferWriter.GetWriteSize(m_Data.NetCodeObject);
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<uint>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<FixedString64Bytes>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<NetworkObjectReference>();
         }
     }
 }

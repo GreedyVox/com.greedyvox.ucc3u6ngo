@@ -2,6 +2,7 @@
     "name": "com.greedyvox.ucc3u6ngo",
     "rootNamespace": "",
     "references": [
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:1491147abca9d7d4bb7105af628b223e",
         "GUID:d8e89a79cd8df884b8d5b3356783eb74",
         "GUID:cb7ef9d091ef9704cac35413bf140440"

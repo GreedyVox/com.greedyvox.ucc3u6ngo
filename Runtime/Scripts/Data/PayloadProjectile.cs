@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -5,7 +6,7 @@ namespace GreedyVox.NetCode.Data
 {
     public struct PayloadProjectile : INetworkSerializable
     {
-        public long OwnerID;
+        public NetworkObjectReference Owner;
         public uint ProjectileID;
         public Vector3 Velocity;
         public Vector3 Torque;
@@ -14,11 +15,11 @@ namespace GreedyVox.NetCode.Data
         public int ImpactFrames;
         public int ImpactLayers;
         public float ImpactStateDisableTimer;
-        public string ImpactStateName;
+        public FixedString64Bytes ImpactStateName;
         public void NetworkSerialize<T>(BufferSerializer<T> serializer)
         where T : IReaderWriter
         {
-            serializer.SerializeValue(ref OwnerID);
+            serializer.SerializeValue(ref Owner);
             serializer.SerializeValue(ref ProjectileID);
             serializer.SerializeValue(ref Velocity);
             serializer.SerializeValue(ref Torque);

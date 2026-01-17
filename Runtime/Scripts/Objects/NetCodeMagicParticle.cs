@@ -1,4 +1,3 @@
-using System;
 using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Interfaces;
 using Opsive.Shared.Game;
@@ -10,34 +9,69 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-/// ---------------------------------------------
-/// Ultimate Character Controller
-/// Copyright (c) Opsive. All Rights Reserved.
-/// https://www.opsive.com
-/// ---------------------------------------------
 namespace GreedyVox.NetCode.Objects
 {
     /// <summary>
-    /// Initializes the magic particle over the network.
+    /// Network-synchronized magic particle initializer.
+    /// Handles payload generation, serialization, and application.
     /// </summary>
     [RequireComponent(typeof(NetworkObject))]
-    public class NetCodeMagicParticle : MonoBehaviour, INetworkMagicObject, IPayload
+    public class NetCodeMagicParticle : MonoBehaviour, INetworkMagicObject, IPayloadEvent, IPayload
     {
-        private GameObject m_Character;
         private MagicAction m_MagicAction;
+        private GameObject m_Character;
         private int m_ActionIndex;
         private uint m_CastID;
-        private PayloadMagicParticle m_Data;
         /// <summary>
-        /// Returns the initialization data that is required when the object spawns. This allows the remote players to initialize the object correctly.
+        /// Stores local spawn data prior to network replication.
         /// </summary>
-        /// <returns>The initialization data that is required when the object spawns.</returns>
-        private void Start()
+        /// <param name="character">Instantiating character.</param>
+        /// <param name="magicAction">Magic action source.</param>
+        /// <param name="actionIndex">Action index.</param>
+        /// <param name="castID">Cast identifier.</param>
+        public void Instantiate(GameObject character, MagicAction magicAction, int actionIndex, uint castID)
         {
-            var net = m_Character.GetCachedComponent<NetworkObject>();
-            m_Data = new PayloadMagicParticle()
+            m_MagicAction = magicAction;
+            m_ActionIndex = actionIndex;
+            m_Character = character;
+            m_CastID = castID;
+        }
+        /// <summary>
+        /// Required interface hook. Not used for magic particles.
+        /// </summary>
+        public void Initialize(uint id, GameObject owner) { }
+        /// <summary>
+        /// Applies payload via interface dispatch.
+        /// </summary>
+        public bool Payload(INetworkSerializable data) => data is PayloadMagicParticle p && Payload(p);
+        /// <summary>
+        /// Produces payload as boxed network-serializable data.
+        /// </summary>
+        public bool Payload(out INetworkSerializable data)
+        {
+            data = Payload();
+            return true;
+        }
+        /// <summary>
+        /// Serializes payload data to a FastBufferWriter.
+        /// Caller is responsible for disposing the writer.
+        /// </summary>
+        public bool Payload(ref int idx, out FastBufferWriter writer)
+        {
+            writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp);
+            writer.WriteValueSafe(idx);
+            writer.WriteValueSafe(transform.position);
+            writer.WriteValueSafe(Payload());
+            return true;
+        }
+        /// <summary>
+        /// Builds the authoritative magic particle payload.
+        /// </summary>
+        public PayloadMagicParticle Payload()
+        {
+            return new PayloadMagicParticle
             {
-                OwnerID = net == null ? -1L : (long)net.OwnerClientId,
+                Owner = m_Character != null && m_Character.TryGetComponent(out NetworkObject net) ? net : default,
                 SlotID = m_MagicAction.CharacterItem.SlotID,
                 ActionID = m_MagicAction.ID,
                 ActionIndex = m_ActionIndex,
@@ -45,79 +79,42 @@ namespace GreedyVox.NetCode.Objects
             };
         }
         /// <summary>
-        /// Sets the spawn data.
+        /// Applies payload data and initializes the magic particle.
         /// </summary>
-        /// <param name="character">The character that is instantiating the object.</param>
-        /// <param name="magicAction">The MagicAction that the object belongs to.</param>
-        /// <param name="actionIndex">The index of the action that is instantiating the object.</param>
-        /// <param name="castID">The ID of the cast that is instantiating the object.</param>
-        public void Instantiate(GameObject character, MagicAction magicAction, int actionIndex, uint castID)
+        public bool Payload(PayloadMagicParticle data)
         {
-            m_Character = character;
-            m_MagicAction = magicAction;
-            m_ActionIndex = actionIndex;
-            m_CastID = castID;
+            if (!data.Owner.TryGet(out NetworkObject net)) return false;
+            var inventory = net.gameObject.GetCachedComponent<Inventory>();
+            if (inventory == null) return false;
+            var item = inventory.GetActiveCharacterItem(data.SlotID);
+            if (item == null) return false;
+            if (item.GetItemAction(data.ActionID) is not MagicAction magicAction)
+                return false;
+            var particle = gameObject.GetCachedComponent<MagicParticle>();
+            particle?.Initialize(magicAction, data.CastID);
+            return true;
         }
         /// <summary>
-        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
+        /// Deserializes payload data and applies it.
         /// </summary>
-        /// <param name="id">The id used to differentiate this projectile from others.</param>
-        /// <param name="owner">The object that instantiated the trajectory object.</param>
-        public void Initialize(uint id, GameObject own) { }
+        public void Payload(in FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out PayloadMagicParticle data);
+            Payload(data);
+        }
         /// <summary>
-        /// The cloned object. This will be called from the object that was spawned.
-        /// </summary>
-        /// <param name="go">The object that instantiated.</param>
-        public void Clone(GameObject go) { }
-        /// <summary>
-        /// Returns the maximus size for the fast buffer writer
+        /// Returns required buffer size for payload serialization.
         /// </summary>
         public int MaxBufferSize()
         {
             return
-                   FastBufferWriter.GetWriteSize<int>() +
-                   FastBufferWriter.GetWriteSize(m_Data.OwnerID) +
-                   FastBufferWriter.GetWriteSize(m_Data.CastID) +
-                   FastBufferWriter.GetWriteSize(m_Data.SlotID) +
-                   FastBufferWriter.GetWriteSize(m_Data.ActionID) +
-                   FastBufferWriter.GetWriteSize(m_Data.ActionIndex);
-        }
-        /// <summary>
-        /// The object has been spawned, write the payload data.
-        /// </summary>
-        public bool PayLoad(ref int idx, out FastBufferWriter writer)
-        {
-            try
-            {
-                using (writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp))
-                {
-                    writer.WriteValueSafe(idx);
-                    writer.WriteValueSafe(m_Data);
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                NetworkLog.LogErrorServer(e.Message);
-                return false;
-            }
-        }
-        /// <summary>
-        /// The object has been spawned, read the payload data.
-        /// Initialize the particle.
-        public void PayLoad(in FastBufferReader reader, GameObject go = default)
-        {
-            if (go == null) return;
-            reader.ReadValueSafe(out m_Data);
-            m_ActionIndex = m_Data.ActionIndex;
-            var inventory = go.GetCachedComponent<Inventory>();
-            if (inventory == null) return;
-            var item = inventory.GetActiveCharacterItem(m_Data.SlotID);
-            if (item == null) return;
-            var magicAction = item.GetItemAction(m_Data.ActionID) as MagicAction;
-            if (magicAction == null) return;
-            var magicParticle = gameObject.GetCachedComponent<MagicParticle>();
-            magicParticle?.Initialize(magicAction, m_Data.CastID);
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<NetworkObjectReference>() +
+                FastBufferWriter.GetWriteSize<uint>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<int>();
         }
     }
 }

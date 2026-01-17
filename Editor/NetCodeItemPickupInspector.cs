@@ -1,3 +1,4 @@
+using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Objects;
 using GreedyVox.NetCode.Traits;
 using GreedyVox.NetCode.Utilities;
@@ -137,6 +138,7 @@ namespace GreedyVox.NetCode.Editors
             // Add network monitors if AttributeManager or Health components are present
             if (ComponentUtility.HasComponent<AttributeManager>(go))
                 ComponentUtility.TryAddComponent<NetCodeAttributeMonitor>(go);
+            ComponentUtility.TryAddComponent<PayloadItemPickupData>(go);
             if (!ComponentUtility.TryReplaceCopy<ItemPickup, NetCodeItemPickup>(go))
                 Debug.LogWarning($"Failed to replace ItemPickup with NetCodeItemPickup on {go.name}");
             if (ComponentUtility.TryAddGetComponent(go, out Health from)

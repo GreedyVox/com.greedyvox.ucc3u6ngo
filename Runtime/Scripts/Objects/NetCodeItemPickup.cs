@@ -1,5 +1,4 @@
-﻿using System;
-using GreedyVox.NetCode.Data;
+﻿using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Interfaces;
 using Opsive.Shared.Game;
 using Opsive.Shared.Utility;
@@ -10,17 +9,22 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>
-/// Initializes the item pickup over the network.
-/// </summary>
 namespace GreedyVox.NetCode.Objects
 {
-    public class NetCodeItemPickup : ItemPickup, IPayload
+    /// <summary>
+    /// Network-synchronized item pickup.
+    /// Handles payload generation, serialization, and remote initialization.
+    /// </summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(NetworkObject))]
+    public class NetCodeItemPickup : ItemPickup, IPayloadEvent, IPayload
     {
-        private TrajectoryObject m_TrajectoryObject;
-        private PayloadItemPickup m_Data;
         /// <summary>
-        /// Initialize the default values.
+        /// Cached trajectory object.
+        /// </summary>
+        private TrajectoryObject m_TrajectoryObject;
+        /// <summary>
+        /// Initializes cached component references.
         /// </summary>
         protected override void Awake()
         {
@@ -28,114 +32,105 @@ namespace GreedyVox.NetCode.Objects
             base.Awake();
         }
         /// <summary>
-        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
+        /// Required by IPayload interface. Not used for item pickups.
         /// </summary>
-        /// <param name="id">The id used to differentiate this projectile from others.</param>
-        /// <param name="owner">The object that instantiated the trajectory object.</param>
-        public void Initialize(uint id, GameObject own) { }
+        public void Initialize(uint id, GameObject owner) { }
         /// <summary>
-        /// The cloned object. This will be called from the object that was spawned.
+        /// Applies payload from boxed network-serializable data.
         /// </summary>
-        /// <param name="go">The object that instantiated.</param>
-        public void Clone(GameObject go)
+        public bool Payload(INetworkSerializable data) => data is PayloadItemPickup p && Payload(p);
+        /// <summary>
+        /// Builds boxed network-serializable payload.
+        /// </summary>
+        public bool Payload(out INetworkSerializable data)
         {
-            m_Data = new PayloadItemPickup()
+            data = Payload();
+            return true;
+        }
+        /// <summary>
+        /// Builds authoritative item pickup payload.
+        /// </summary>
+        public PayloadItemPickup Payload()
+        {
+            var src = m_ItemDefinitionAmounts;
+            var len = src.Length;
+            var data = new PayloadItemPickup
             {
-                Position = go.transform.position,
-                Rotation = go.transform.rotation,
-                ItemCount = m_ItemDefinitionAmounts.Length,
-                ItemID = GetArrayDataIDs(m_ItemDefinitionAmounts),
-                ItemAmounts = GetArrayDataAmounts(m_ItemDefinitionAmounts),
-                Velocity = m_TrajectoryObject == null ? Vector3.zero : m_TrajectoryObject.Velocity,
-                Torque = m_TrajectoryObject == null ? Vector3.zero : m_TrajectoryObject.Torque,
+                Owner = m_TrajectoryObject != null
+                        && m_TrajectoryObject.Owner != null
+                        && m_TrajectoryObject.Owner.TryGetComponent(out NetworkObject net)
+                        ? net : default,
+                Rotation = transform.rotation,
+                Velocity = m_TrajectoryObject != null ? m_TrajectoryObject.Velocity : Vector3.zero,
+                Torque = m_TrajectoryObject != null ? m_TrajectoryObject.Torque : Vector3.zero,
+                ItemCount = len,
+                ItemID = new uint[len],
+                ItemAmounts = new int[len]
             };
+            for (int i = 0; i < len; ++i)
+            {
+                var entry = src[i];
+                data.ItemAmounts[i] = entry.Amount;
+                data.ItemID[i] = ((ItemType)entry.ItemIdentifier).ID;
+            }
+            return data;
         }
         /// <summary>
-        /// Extracts the <c>Amount</c> values from an array of <see cref="ItemIdentifierAmount"/> objects
-        /// and returns them as an array of integers.
+        /// Serializes payload into a FastBufferWriter.
+        /// Caller owns writer disposal.
         /// </summary>
-        /// <param name="items">An array of <see cref="ItemIdentifierAmount"/> objects to extract amounts from.</param>
-        /// <returns>An array of integers representing the <c>Amount</c> of each item in the input array.</returns>
-        private int[] GetArrayDataAmounts(ItemIdentifierAmount[] items)
+        public bool Payload(ref int idx, out FastBufferWriter writer)
         {
-            var dat = new int[items.Length];
-            for (var i = 0; i < dat.Length; i++)
-                dat[i] = items[i].Amount;
-            return dat;
+            writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp);
+            writer.WriteValueSafe(idx);
+            writer.WriteValueSafe(transform.position);
+            writer.WriteValueSafe(Payload());
+            return true;
         }
         /// <summary>
-        /// Retrieves an array of item type IDs from the provided array of <see cref="ItemIdentifierAmount"/>.
-        /// Each ID corresponds to the <see cref="ItemType.ID"/> of the <see cref="ItemIdentifier"/> in the input array.
+        /// Deserializes payload and initializes item pickup.
         /// </summary>
-        /// <param name="items">An array of <see cref="ItemIdentifierAmount"/> objects to extract IDs from.</param>
-        /// <returns>An array of <see cref="uint"/> containing the IDs of the item types.</returns>
-        private uint[] GetArrayDataIDs(ItemIdentifierAmount[] items)
+        public bool Payload(PayloadItemPickup data)
         {
-            var dat = new uint[items.Length];
-            for (var i = 0; i < dat.Length; i++)
-                dat[i] = (items[i].ItemIdentifier as ItemType).ID;
-            return dat;
+            transform.rotation = data.Rotation;
+            for (int i = 0; i < m_ItemDefinitionAmounts.Length; ++i)
+                GenericObjectPool.Return(m_ItemDefinitionAmounts[i]);
+            if (m_ItemDefinitionAmounts.Length != data.ItemCount)
+                m_ItemDefinitionAmounts = new ItemIdentifierAmount[data.ItemCount];
+            for (int i = 0; i < data.ItemCount; ++i)
+            {
+                m_ItemDefinitionAmounts[i] = new ItemIdentifierAmount(
+                ItemIdentifierTracker.GetItemIdentifier(data.ItemID[i]).GetItemDefinition(), data.ItemAmounts[i]);
+            }
+            Initialize(true);
+            if (m_TrajectoryObject != null)
+                m_TrajectoryObject.Initialize(data.Velocity, data.Torque, data.Owner);
+            return true;
         }
         /// <summary>
-        /// Returns the maximus size for the fast buffer writer
-        /// </summary>               
-        public int MaxBufferSize()
+        /// Deserializes payload from a FastBufferReader.
+        /// </summary>
+        public void Payload(in FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out PayloadItemPickup data);
+            Payload(data);
+        }
+        /// <summary>
+        /// Calculates required FastBufferWriter capacity.
+        /// </summary>
+        public int MaxBufferSize() => MaxBufferSize(m_ItemDefinitionAmounts.Length);
+        public int MaxBufferSize(in int length)
         {
             return
-            FastBufferWriter.GetWriteSize<int>() +
-            FastBufferWriter.GetWriteSize(m_Data.Position) +
-            FastBufferWriter.GetWriteSize(m_Data.Rotation) +
-            FastBufferWriter.GetWriteSize(m_Data.ItemCount) +
-            FastBufferWriter.GetWriteSize(m_Data.Torque) +
-            FastBufferWriter.GetWriteSize(m_Data.Velocity) +
-            FastBufferWriter.GetWriteSize(m_Data.ItemID ?? Array.Empty<uint>()) +
-            FastBufferWriter.GetWriteSize(m_Data.ItemAmounts ?? Array.Empty<int>());
-        }
-        /// <summary>
-        /// The object has been spawned, write the payload data.
-        /// </summary>
-        public bool PayLoad(ref int idx, out FastBufferWriter writer)
-        {
-            try
-            {
-                using (writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp))
-                {
-                    writer.WriteValueSafe(idx);
-                    writer.WriteValueSafe(m_Data);
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                NetworkLog.LogErrorServer(e.Message);
-                return false;
-            }
-        }
-        /// <summary>
-        /// The object has been spawned, read the payload data.
-        /// </summary>
-        public void PayLoad(in FastBufferReader reader, GameObject go = default)
-        {
-            reader.ReadValueSafe(out m_Data);
-            transform.position = m_Data.Position;
-            transform.rotation = m_Data.Rotation;
-            for (int i = 0; i < m_ItemDefinitionAmounts.Length; i++)
-                GenericObjectPool.Return(m_ItemDefinitionAmounts[i]);
-            // Setup the item counts.
-            var length = m_Data.ItemCount;
-            if (m_ItemDefinitionAmounts.Length != length)
-                m_ItemDefinitionAmounts = new ItemIdentifierAmount[length];
-            for (int n = 0; n < length; n++)
-                m_ItemDefinitionAmounts[n] = new ItemIdentifierAmount(ItemIdentifierTracker.GetItemIdentifier(
-                    m_Data.ItemID[n]).GetItemDefinition(), m_Data.ItemAmounts[n]);
-            Initialize(true);
-            // Setup the trajectory object.
-            if (m_TrajectoryObject != null)
-            {
-                var velocity = m_Data.Velocity;
-                var torque = m_Data.Torque;
-                m_TrajectoryObject.Initialize(velocity, torque, go);
-            }
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<Quaternion>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<NetworkObjectReference>() +
+                length * FastBufferWriter.GetWriteSize<uint>() +
+                length * FastBufferWriter.GetWriteSize<int>();
         }
     }
 }

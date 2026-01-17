@@ -1,4 +1,5 @@
 using GreedyVox.NetCode;
+using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Objects;
 using GreedyVox.NetCode.Traits;
 using GreedyVox.NetCode.Utilities;
@@ -77,6 +78,7 @@ namespace YAARRGH.Battle.Island.Editors
             ComponentUtility.TryAddComponent<NetworkTransform>(go);
             ComponentUtility.TryAddComponent<NetCodeInfo>(go);
             ComponentUtility.TryAddComponent<NetCodeDestructibleMonitor>(go);
+            ComponentUtility.TryAddComponent<PayloadProjectileData>(go);
             if (!ComponentUtility.TryReplaceCopy<Projectile, NetCodeProjectile>(go))
                 ShowNotification(new GUIContent($"Error while replacing the component {typeof(Projectile)} with {typeof(NetCodeProjectile)}",
                                      EditorGUIUtility.IconContent(IconErrorPath).image), 15);

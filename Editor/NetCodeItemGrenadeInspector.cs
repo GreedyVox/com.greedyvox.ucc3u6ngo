@@ -1,3 +1,4 @@
+using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Objects;
 using GreedyVox.NetCode.Traits;
 using GreedyVox.NetCode.Utilities;
@@ -76,6 +77,7 @@ namespace GreedyVox.NetCode.Editors
             ComponentUtility.TryAddComponent<NetworkTransform>(go);
             ComponentUtility.TryAddComponent<NetCodeInfo>(go);
             ComponentUtility.TryAddComponent<NetCodeDestructibleMonitor>(go);
+            ComponentUtility.TryAddComponent<PayloadGrenadoData>(go);
             if (!ComponentUtility.TryReplaceCopy<Grenade, NetCodeGrenade>(go))
                 ShowNotification(new GUIContent($"Error while replacing the component {typeof(Grenade)} with {typeof(NetCodeGrenade)}",
                                      EditorGUIUtility.IconContent(IconErrorPath).image), 15);

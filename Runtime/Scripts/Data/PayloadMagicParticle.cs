@@ -4,7 +4,7 @@ namespace GreedyVox.NetCode.Data
 {
     public struct PayloadMagicParticle : INetworkSerializable
     {
-        public long OwnerID;
+        public NetworkObjectReference Owner;
         public uint CastID;
         public int SlotID;
         public int ActionID;
@@ -12,7 +12,7 @@ namespace GreedyVox.NetCode.Data
         public void NetworkSerialize<T>(BufferSerializer<T> serializer)
         where T : IReaderWriter
         {
-            serializer.SerializeValue(ref OwnerID);
+            serializer.SerializeValue(ref Owner);
             serializer.SerializeValue(ref CastID);
             serializer.SerializeValue(ref SlotID);
             serializer.SerializeValue(ref ActionID);

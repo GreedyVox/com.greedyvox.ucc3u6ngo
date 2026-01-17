@@ -8,11 +8,11 @@ namespace GreedyVox.NetCode.Interfaces
         /// <summary>
         /// The object has been spawned, write the payload data.
         /// </summary>
-        bool PayLoad(ref int idx, out FastBufferWriter writer);
+        bool Payload(ref int idx, out FastBufferWriter writer);
         /// <summary>
         /// The object has been spawned, read the payload data.
         /// </summary>
-        void PayLoad(in FastBufferReader reader, GameObject go = default);
+        void Payload(in FastBufferReader reader);
         /// <summary>
         /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
         /// </summary>
@@ -23,10 +23,5 @@ namespace GreedyVox.NetCode.Interfaces
         /// Returns the maximus size for the fast buffer writer
         /// </summary>
         int MaxBufferSize();
-        /// <summary>
-        /// The cloned object. This will be called from the object that was spawned.
-        /// </summary>
-        /// <param name="go">The object that instantiated.</param>
-        void Clone(GameObject go);
     }
 }

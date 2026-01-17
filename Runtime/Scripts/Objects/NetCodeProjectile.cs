@@ -1,7 +1,5 @@
-using System;
 using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Interfaces;
-using Opsive.Shared.Game;
 using Opsive.UltimateCharacterController.Items.Actions.Impact;
 using Opsive.UltimateCharacterController.Objects;
 using Unity.Collections;
@@ -10,22 +8,70 @@ using UnityEngine;
 
 namespace GreedyVox.NetCode.Objects
 {
+    /// <summary>
+    /// Network-synchronized projectile implementation.
+    /// Handles payload generation, serialization, and application.
+    /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject))]
-    public class NetCodeProjectile : Projectile, IPayload
+    public class NetCodeProjectile : Projectile, IPayloadEvent, IPayload
     {
-        private ImpactDamageData m_DamageData;
-        private PayloadProjectile m_Data;
         /// <summary>
-        /// Returns the initialization data that is required when the object spawns. This allows the remote players to initialize the object correctly.
+        /// Cached impact damage data instance reused across payload applications.
         /// </summary>
-        /// <returns>The initialization data that is required when the object spawns.</returns>
-        private void Start()
+        protected ImpactDamageData m_DamageData = new();
+        /// <summary>
+        /// Initializes the projectile on the authoritative instance.
+        /// </summary>
+        /// <param name="id">Projectile identifier.</param>
+        /// <param name="owner">Owning GameObject.</param>
+        public void Initialize(uint id, GameObject owner)
         {
-            var net = m_Owner.GetCachedComponent<NetworkObject>();
-            m_Data = new PayloadProjectile()
+            InitializeComponentReferences();
+            Initialize(id, Vector3.zero, Vector3.zero, owner, m_DamageData);
+        }
+        /// <summary>
+        /// Applies payload data via interface dispatch.
+        /// </summary>
+        /// <param name="data">Network-serialized payload.</param>
+        /// <returns>True if payload type matched and applied.</returns>
+        public bool Payload(INetworkSerializable data) => data is PayloadProjectile p && Payload(p);
+        /// <summary>
+        /// Produces the authoritative payload as a boxed network-serializable value.
+        /// </summary>
+        /// <param name="data">Generated payload.</param>
+        /// <returns>True if payload was produced.</returns>
+        public bool Payload(out INetworkSerializable data)
+        {
+            data = Payload();
+            return true;
+        }
+        /// <summary>
+        /// Applies payload data to initialize projectile runtime state.
+        /// </summary>
+        /// <param name="data">Projectile payload.</param>
+        /// <returns>True if successfully applied.</returns>
+        public bool Payload(PayloadProjectile data)
+        {
+            m_DamageData ??= new ImpactDamageData();
+            m_DamageData.DamageAmount = data.DamageAmount;
+            m_DamageData.ImpactForce = data.ImpactForce;
+            m_DamageData.ImpactForceFrames = data.ImpactFrames;
+            m_DamageData.ImpactStateName = data.ImpactStateName.ToString();
+            m_DamageData.ImpactStateDisableTimer = data.ImpactStateDisableTimer;
+            m_ImpactLayers = data.ImpactLayers;
+            Initialize(data.ProjectileID, data.Velocity, data.Torque, data.Owner, m_DamageData);
+            return true;
+        }
+        /// <summary>
+        /// Builds the authoritative projectile payload.
+        /// </summary>
+        /// <returns>PayloadProjectile struct.</returns>
+        public PayloadProjectile Payload()
+        {
+            return new PayloadProjectile
             {
-                OwnerID = net == null ? -1L : (long)net.OwnerClientId,
+                Owner = m_Owner.TryGetComponent(out NetworkObject net) ? net : default,
                 ProjectileID = m_ID,
                 Velocity = m_Velocity,
                 Torque = m_Torque,
@@ -38,73 +84,48 @@ namespace GreedyVox.NetCode.Objects
             };
         }
         /// <summary>
-        /// Initializes the object. This will be called from an object creating the projectile (such as a weapon).
+        /// Serializes payload data into a FastBufferWriter.
+        /// Caller is responsible for disposing the writer.
         /// </summary>
-        /// <param name="id">The id used to differentiate this projectile from others.</param>
-        /// <param name="owner">The object that instantiated the trajectory object.</param>
-        public void Initialize(uint id, GameObject own)
+        /// <param name="idx">Stream index.</param>
+        /// <param name="writer">Writer containing serialized data.</param>
+        /// <returns>True if serialization succeeded.</returns>
+        public bool Payload(ref int idx, out FastBufferWriter writer)
         {
-            InitializeComponentReferences();
-            Initialize(id, Vector3.zero, Vector3.zero, own, m_DamageData);
+            writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp);
+            writer.WriteValueSafe(idx);
+            writer.WriteValueSafe(transform.position);
+            writer.WriteValueSafe(Payload());
+            return true;
         }
         /// <summary>
-        /// The cloned object. This will be called from the object that was spawned.
+        /// Reads payload data from a buffer and applies it.
         /// </summary>
-        /// <param name="go">The object that instantiated.</param>
-        public void Clone(GameObject go) { }
-        /// <summary>
-        /// The object has been spawned, write the payload data.
-        /// </summary>
-        public bool PayLoad(ref int idx, out FastBufferWriter writer)
+        /// <param name="reader">Fast buffer reader.</param>
+        public void Payload(in FastBufferReader reader)
         {
-            try
-            {
-                using (writer = new FastBufferWriter(MaxBufferSize(), Allocator.Temp))
-                {
-                    writer.WriteValueSafe(idx);
-                    writer.WriteValueSafe(m_Data);
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                NetworkLog.LogErrorServer(e.Message);
-                return false;
-            }
+            reader.ReadValueSafe(out PayloadProjectile data);
+            Payload(data);
         }
         /// <summary>
-        /// The object has been spawned. Initialize the projectile.
+        /// Returns the maximum serialized buffer size for the projectile payload.
         /// </summary>
-        public void PayLoad(in FastBufferReader reader, GameObject go = default)
-        {
-            if (go == null) return;
-            reader.ReadValueSafe(out m_Data);
-            m_DamageData ??= new ImpactDamageData();
-            m_DamageData.DamageAmount = m_Data.DamageAmount;
-            m_DamageData.ImpactForce = m_Data.ImpactForce;
-            m_DamageData.ImpactForceFrames = m_Data.ImpactFrames;
-            m_ImpactLayers = m_Data.ImpactLayers;
-            m_DamageData.ImpactStateName = m_Data.ImpactStateName;
-            m_DamageData.ImpactStateDisableTimer = m_Data.ImpactStateDisableTimer;
-            Initialize(m_Data.ProjectileID, m_Data.Velocity, m_Data.Torque, go, m_DamageData);
-        }
-        /// <summary>
-        /// Returns the maximus size for the fast buffer writer
-        /// </summary>
+        /// <returns>Required buffer size in bytes.</returns>
         public int MaxBufferSize()
         {
             return
-            FastBufferWriter.GetWriteSize<int>() +
-            FastBufferWriter.GetWriteSize(m_Data.OwnerID) +
-            FastBufferWriter.GetWriteSize(m_Data.ProjectileID) +
-            FastBufferWriter.GetWriteSize(m_Data.Velocity) +
-            FastBufferWriter.GetWriteSize(m_Data.Torque) +
-            FastBufferWriter.GetWriteSize(m_Data.DamageAmount) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactForce) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactFrames) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactLayers) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactStateDisableTimer) +
-            FastBufferWriter.GetWriteSize(m_Data.ImpactStateName);
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<NetworkObjectReference>() +
+                FastBufferWriter.GetWriteSize<uint>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<Vector3>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<int>() +
+                FastBufferWriter.GetWriteSize<float>() +
+                FastBufferWriter.GetWriteSize<FixedString64Bytes>();
         }
     }
 }

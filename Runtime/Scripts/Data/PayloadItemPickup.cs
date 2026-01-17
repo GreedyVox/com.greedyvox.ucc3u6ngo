@@ -5,7 +5,7 @@ namespace GreedyVox.NetCode.Data
 {
     public struct PayloadItemPickup : INetworkSerializable
     {
-        public Vector3 Position;
+        public NetworkObjectReference Owner;
         public Quaternion Rotation;
         public int ItemCount;
         public Vector3 Torque;
@@ -15,7 +15,6 @@ namespace GreedyVox.NetCode.Data
         public void NetworkSerialize<T>(BufferSerializer<T> serializer)
         where T : IReaderWriter
         {
-            serializer.SerializeValue(ref Position);
             serializer.SerializeValue(ref Rotation);
             serializer.SerializeValue(ref ItemCount);
             serializer.SerializeValue(ref Torque);
