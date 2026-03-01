@@ -13,7 +13,7 @@ namespace GreedyVox.NetCode.Objects
     /// Handles payload generation, serialization, and application.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(NetworkObject))]
+    [RequireComponent(typeof(NetCodeInfo))]
     public class NetCodeProjectile : Projectile, IPayloadEvent, IPayload
     {
         /// <summary>

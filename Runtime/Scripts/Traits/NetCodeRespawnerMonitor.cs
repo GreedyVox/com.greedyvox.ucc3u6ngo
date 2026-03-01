@@ -6,6 +6,7 @@ using UnityEngine;
 
 /// <summary>
 /// Synchronizes the Respawner over the network.
+/// Handles local and remote respawn events for networked objects.
 /// </summary>
 namespace GreedyVox.NetCode.Traits
 {
@@ -13,28 +14,37 @@ namespace GreedyVox.NetCode.Traits
     {
         private Respawner m_Respawner;
         /// <summary>
-        /// Initializes the default values.
+        /// Initializes default references.
+        /// Caches the Respawner component on Awake.
         /// </summary>
-        private void Awake() =>
-        m_Respawner = gameObject.GetCachedComponent<Respawner>();
+        private void Awake() => m_Respawner = gameObject.GetCachedComponent<Respawner>();
         /// <summary>
-        /// Does the respawn by setting the position and rotation to the specified values.
-        /// Enable the GameObject and let all of the listening objects know that the object has been respawned.
+        /// Performs a respawn locally and propagates the respawn across the network.
         /// </summary>
-        /// <param name="position">The respawn position.</param>
-        /// <param name="rotation">The respawn rotation.</param>
-        /// <param name="state">Was the position or rotation changed?</param>
+        /// <param name="position">The target respawn position.</param>
+        /// <param name="rotation">The target respawn rotation.</param>
+        /// <param name="state">Whether the position or rotation changed.</param>
         public void Respawn(Vector3 position, Quaternion rotation, bool state) =>
         RespawnRpc(position, rotation, state);
         /// <summary>
-        /// Does the respawn on the network by setting the position and rotation to the specified values.
-        /// Enable the GameObject and let all of the listening objects know that the object has been respawned.
+        /// RPC called on all clients except the owner to execute a respawn.
+        /// Invoked reliably on remote clients to synchronize position and rotation.
         /// </summary>
-        /// <param name="position">The respawn position.</param>
-        /// <param name="rotation">The respawn rotation.</param>
-        /// <param name="state">Was the position or rotation changed?</param>
+        /// <param name="position">The target respawn position.</param>
+        /// <param name="rotation">The target respawn rotation.</param>
+        /// <param name="state">Whether the position or rotation changed.</param>
         [Rpc(SendTo.NotOwner, InvokePermission = RpcInvokePermission.Everyone, Delivery = RpcDelivery.Reliable)]
         private void RespawnRpc(Vector3 position, Quaternion rotation, bool state) =>
+        m_Respawner.Respawn(position, rotation, state);
+        /// <summary>
+        /// RPC called on the server by the owner to execute a respawn.
+        /// This ensures the server authority applies the respawn and propagates it.
+        /// </summary>
+        /// <param name="position">The target respawn position.</param>
+        /// <param name="rotation">The target respawn rotation.</param>
+        /// <param name="state">Whether the position or rotation changed.</param>
+        [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server, Delivery = RpcDelivery.Reliable)]
+        public void RespawnServerRpc(Vector3 position, Quaternion rotation, bool state) =>
         m_Respawner.Respawn(position, rotation, state);
     }
 }

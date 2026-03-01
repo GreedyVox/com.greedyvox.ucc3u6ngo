@@ -15,7 +15,7 @@ namespace GreedyVox.NetCode.Objects
     /// and remote initialization.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(NetworkObject), typeof(NetCodeInfo))]
+    [RequireComponent(typeof(NetCodeInfo))]
     public class NetCodeGrenade : Grenade, IPayloadEvent, IPayload
     {
         /// <summary>

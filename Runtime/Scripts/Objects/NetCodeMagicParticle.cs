@@ -15,7 +15,7 @@ namespace GreedyVox.NetCode.Objects
     /// Network-synchronized magic particle initializer.
     /// Handles payload generation, serialization, and application.
     /// </summary>
-    [RequireComponent(typeof(NetworkObject))]
+    [RequireComponent(typeof(NetCodeInfo))]
     public class NetCodeMagicParticle : MonoBehaviour, INetworkMagicObject, IPayloadEvent, IPayload
     {
         private MagicAction m_MagicAction;

@@ -1,4 +1,3 @@
-using GreedyVox.NetCode.Game;
 using Opsive.Shared.Game;
 using Unity.Netcode;
 using UnityEngine;
@@ -40,14 +39,7 @@ namespace GreedyVox.NetCode
         /// </summary>
         private void Remove()
         {
-            if (ObjectPoolBase.IsPooledObject(gameObject))
-            {
-                if (m_NetCodeObject == null)
-                    ObjectPoolBase.Destroy(gameObject);
-                else if (IsServer)
-                    NetCodeObjectPool.Destroy(gameObject);
-            }
-            else if (m_NetCodeObject == null) Destroy(gameObject);
+            if (m_NetCodeObject == null) Destroy(gameObject);
             else if (IsServer) m_NetCodeObject.Despawn();
             else Debug.LogError($"Error occurred destroying the game object {gameObject}");
         }

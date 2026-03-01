@@ -16,7 +16,7 @@ namespace GreedyVox.NetCode.Objects
     /// Handles payload generation, serialization, and remote initialization.
     /// </summary>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(NetworkObject))]
+    [RequireComponent(typeof(NetCodeInfo))]
     public class NetCodeItemPickup : ItemPickup, IPayloadEvent, IPayload
     {
         /// <summary>

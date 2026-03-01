@@ -27,7 +27,7 @@ namespace GreedyVox.NetCode.Traits
                     net.Despawn();
                 else if (m_NetCodeObject == null)
                     ObjectPoolBase.Destroy(m_GamingObject);
-                else NetCodeObjectPool.Destroy(m_GamingObject);
+                else Destroy(m_GamingObject);
             }
         }
         /// <summary>

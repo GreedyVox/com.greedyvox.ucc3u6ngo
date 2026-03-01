@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using GreedyVox.NetCode.Interfaces;
 using GreedyVox.NetCode.Utilities;
@@ -16,6 +17,7 @@ namespace GreedyVox.NetCode.Game
     {
         [Tooltip("An array of objects that can be spawned over the network. These objects will require manually custom pooling.")]
         [SerializeField] protected ObjectPoolDataAbstract[] m_InjectObjectPoolData;
+        [SerializeField] protected bool m_IsDebugLogging = false;
         protected HashSet<GameObject> m_SpawnableGameObjects = new();
         protected HashSet<GameObject> m_SpawnedGameObjects = new();
         protected HashSet<GameObject> m_ActiveGameObjects = new();
@@ -24,9 +26,22 @@ namespace GreedyVox.NetCode.Game
         /// </summary>
         protected virtual void Start()
         {
-            SetupSpawnManager(Object.FindFirstObjectByType<ObjectPool>()?.PreloadedPrefabs);
+            SetupSpawnManager(FindFirstObjectByType<ObjectPool>()?.PreloadedPrefabs);
             foreach (var pool in m_InjectObjectPoolData)
                 pool.InjectGameObject(m_SpawnableGameObjects);
+        }
+        /// <summary>
+        /// Destroys the object.
+        /// </summary>
+        /// <param name="go">The object that should be destroyed.</param>
+        public new void Destroy(GameObject go)
+        {
+            m_ActiveGameObjects.Remove(go);
+            if (InstantiatedWithPool(go))
+                DestroyInternal(go);
+            else GameObject.Destroy(go);
+            if (m_IsDebugLogging)
+                Debug.Log($"<color=blue>{this} Destroy <color=white>{go}</color></color>");
         }
         /// <summary>
         /// Injects a GameObject into the pool manager for networked spawning.
@@ -70,49 +85,76 @@ namespace GreedyVox.NetCode.Game
         {
             if (m_SpawnableGameObjects.Contains(original))
             {
-                if (!m_SpawnedGameObjects.Contains(instance))
-                    m_SpawnedGameObjects.Add(instance);
                 if (!m_ActiveGameObjects.Contains(instance))
                     m_ActiveGameObjects.Add(instance);
-                if (NetworkManager.Singleton.IsServer)
-                    instance.GetCachedComponent<NetworkObject>()?.Spawn(scene);
-                else if (ComponentUtility.TryGet<IPayload>(instance, out var dat))
-                    NetCodeMessenger.Instance.ClientSpawnObject(original, instance, dat);
-                return;
+                if (TryNetworkSpawnInternal(original, instance, scene))
+                {
+                    if (!m_SpawnedGameObjects.Contains(instance))
+                        m_SpawnedGameObjects.Add(instance);
+                    return;
+                }
             }
             Debug.LogError($"Error: Unable to spawn {original.name} on the network. Ensure the object has been added to the NetworkObjectPool.");
+        }
+        /// <summary>
+        /// Try an object over the network without instantiating a new object on the local client.
+        /// </summary>
+        /// <param name="original">The original object the instance was created from.</param>
+        /// <param name="instance">The instance object created from the original object.</param>
+        /// <param name="sceneObject">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
+        /// <returns></returns>
+        protected virtual bool TryNetworkSpawnInternal(GameObject original, GameObject instance, bool scene)
+        {
+            if (NetworkManager.Singleton.IsServer
+            && instance.TryGetComponent(out NetworkObject ngo))
+            {
+                ngo.enabled = true; ngo.Spawn(scene);
+                return true;
+            }
+            if (NetworkManager.Singleton.IsClient
+            && ComponentUtility.TryGet<IPayload>(instance, out var dat))
+            {
+                NetCodeMessenger.Instance.ClientSpawnObject(original, instance, dat);
+                return true;
+            }
+            return false;
         }
         /// <summary>
         /// Destroys an object instance on the network.
         /// </summary>
         /// <param name="obj">The object to be destroyed.</param>
-        protected override void DestroyInternal(GameObject obj)
+        protected override void DestroyInternal(GameObject go)
         {
-            if (ObjectPool.InstantiatedWithPool(obj))
-                DestroyInternalExtended(obj);
-            else if (NetworkManager.Singleton.IsServer
-            && obj.TryGetComponent<NetworkObject>(out var net))
-                net.Despawn();
-            else GameObject.Destroy(obj);
+            try
+            {
+                if (TryDestroyInternal(go)) return;
+                // Only pool the object once despawned
+                ObjectPoolBase.Destroy(go);
+            }
+            catch (Exception e)
+            {
+                Debug.Log($"{e.Message}\n{e.StackTrace}");
+                GameObject.Destroy(go);
+            }
         }
         /// <summary>
-        /// Extends the destruction of the object.
+        /// Despawns an object instance over the network.
         /// </summary>
-        /// <param name="obj">The object to be destroyed.</param>
-        protected virtual void DestroyInternalExtended(GameObject obj)
+        /// <param name="ngo">The object to be despawn.</param>
+        protected virtual bool TryDestroyInternal(GameObject go)
         {
-            if (obj.TryGetComponent<NetworkObject>(out var net) && net.IsSpawned)
+            var ngo = go.GetCachedComponent<NetworkObject>();
+            if (ngo?.IsSpawned == true)
             {
+                if (m_IsDebugLogging)
+                    Debug.Log($"<color=blue>{this} TryDestroyInternal [<color=white>{go} | {NetworkManager.Singleton.IsServer}</color>]</color>");
                 if (NetworkManager.Singleton.IsServer)
-                {
-                    net.Despawn();
-                    m_SpawnedGameObjects.Remove(obj);
-                }
-                else if (NetworkManager.Singleton.IsClient)
-                    NetCodeMessenger.Instance.ClientDespawnObject(net.NetworkObjectId);
+                    ngo.Despawn();
+                else NetCodeMessenger.Instance.ClientDespawnObject(ngo.NetworkObjectId);
+                m_SpawnedGameObjects.Remove(go);
+                return true;
             }
-            else { ObjectPool.Destroy(obj); }
-            m_ActiveGameObjects.Remove(obj);
+            return false;
         }
         /// <summary>
         /// Determines if the specified object was spawned using the network object pool.
