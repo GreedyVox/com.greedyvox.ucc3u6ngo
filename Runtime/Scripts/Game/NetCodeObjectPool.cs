@@ -18,9 +18,39 @@ namespace GreedyVox.NetCode.Game
         [Tooltip("An array of objects that can be spawned over the network. These objects will require manually custom pooling.")]
         [SerializeField] protected ObjectPoolDataAbstract[] m_InjectObjectPoolData;
         [SerializeField] protected bool m_IsDebugLogging = false;
+        /// <summary>
+        /// Gets the active network object pool instance used by the static network spawning API.
+        /// </summary>
+        public static NetCodeObjectPool Instance { get; private set; }
         protected HashSet<GameObject> m_SpawnableGameObjects = new();
         protected HashSet<GameObject> m_SpawnedGameObjects = new();
         protected HashSet<GameObject> m_ActiveGameObjects = new();
+        /// <summary>
+        /// Resets the cached instance when Unity initializes the runtime subsystem.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetInstance() => Instance = null;
+        /// <summary>
+        /// The object has been disabled.
+        /// </summary>
+        protected override void OnDisable()
+        {
+            if (Instance == this) Instance = null;
+            base.OnDisable();
+        }
+        /// <summary>
+        /// The object has been enabled.
+        /// </summary>
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogError("Multiple NetCodeObjectPool instances are active.", this);
+                return;
+            }
+            Instance = this;
+        }
         /// <summary>
         /// Initializes the default values.
         /// </summary>
@@ -69,7 +99,6 @@ namespace GreedyVox.NetCode.Game
         /// </summary>
         /// <param name="go">The original GameObject to be injected into the pool manager.</param>
         /// <param name="inject">The handler responsible for managing the instantiation and handling of networked prefabs.</param>
-        /// <param name="pool">Specifies whether to use the pool manager for this object.</param>
         public virtual void InjectSpawnManager(INetworkPrefabInstanceHandler inject, GameObject go)
         {
             m_SpawnableGameObjects.Add(go);
@@ -80,7 +109,7 @@ namespace GreedyVox.NetCode.Game
         /// </summary>
         /// <param name="original">The original object the instance was created from.</param>
         /// <param name="instance">The instance object created from the original object.</param>
-        /// <param name="sceneObject">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
+        /// <param name="scene">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
         protected override void NetworkSpawnInternal(GameObject original, GameObject instance, bool scene)
         {
             if (m_SpawnableGameObjects.Contains(original))
@@ -101,8 +130,8 @@ namespace GreedyVox.NetCode.Game
         /// </summary>
         /// <param name="original">The original object the instance was created from.</param>
         /// <param name="instance">The instance object created from the original object.</param>
-        /// <param name="sceneObject">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
-        /// <returns></returns>
+        /// <param name="scene">Indicates if the object is owned by the scene. If false, it will be owned by the character.</param>
+        /// <returns>True if the object was spawned or a spawn request was sent, otherwise false.</returns>
         protected virtual bool TryNetworkSpawnInternal(GameObject original, GameObject instance, bool scene)
         {
             if (NetworkManager.Singleton.IsServer
@@ -122,7 +151,7 @@ namespace GreedyVox.NetCode.Game
         /// <summary>
         /// Destroys an object instance on the network.
         /// </summary>
-        /// <param name="obj">The object to be destroyed.</param>
+        /// <param name="go">The object to be destroyed.</param>
         protected override void DestroyInternal(GameObject go)
         {
             try
@@ -140,7 +169,8 @@ namespace GreedyVox.NetCode.Game
         /// <summary>
         /// Despawns an object instance over the network.
         /// </summary>
-        /// <param name="ngo">The object to be despawn.</param>
+        /// <param name="go">The object to be despawned.</param>
+        /// <returns>True if a despawn operation or request was started, otherwise false.</returns>
         protected virtual bool TryDestroyInternal(GameObject go)
         {
             var ngo = go.GetCachedComponent<NetworkObject>();
@@ -159,8 +189,34 @@ namespace GreedyVox.NetCode.Game
         /// <summary>
         /// Determines if the specified object was spawned using the network object pool.
         /// </summary>
-        /// <param name="obj">The object instance to check.</param>
+        /// <param name="obj">The object original/instance to check.</param>
         /// <returns>True if the object was spawned using the network object pool, otherwise false.</returns>
         protected override bool SpawnedWithPoolInternal(GameObject obj) => m_SpawnedGameObjects.Contains(obj);
+        /// <summary>
+        /// Spawns the object over the network. This does not instantiate a new object on the local client.
+        /// </summary>
+        /// <param name="original">The object that the object was instantiated from.</param>
+        /// <param name="instance">The object that was instantiated from the original object.</param>
+        /// <param name="scene">Is the object owned by the scene? If false it will be owned by the character.</param>
+        /// <returns>True if the object was spawned or a spawn request was sent, otherwise false.</returns>
+        public static bool TryNetworkSpawn(GameObject original, GameObject instance, bool scene)
+        => Instance != null && Instance.TryNetworkSpawnInstance(original, instance, scene);
+        /// <summary>
+        /// Spawns the object over the network. This does not instantiate a new object on the local client.
+        /// </summary>
+        /// <param name="original">The object that the object was instantiated from.</param>
+        /// <param name="instance">The object that was instantiated from the original object.</param>
+        /// <param name="scene">Is the object owned by the scene? If false it will be owned by the character.</param>
+        /// <returns>True if the object was spawned or a spawn request was sent, otherwise false.</returns>
+        private bool TryNetworkSpawnInstance(GameObject original, GameObject instance, bool scene)
+        {
+            if (original == null || instance == null
+            || !m_SpawnableGameObjects.Contains(original)) return false;
+            if (!TryNetworkSpawnInternal(original, instance, scene))
+                return false;
+            m_SpawnedGameObjects.Add(instance);
+            m_ActiveGameObjects.Add(instance);
+            return true;
+        }
     }
 }

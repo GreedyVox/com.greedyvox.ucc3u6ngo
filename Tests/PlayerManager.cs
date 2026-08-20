@@ -13,6 +13,7 @@ namespace GreedyVox.NetCode.Tests
         [SerializeField] private KeyCode m_KeyCodeRespawn = KeyCode.Backspace;
         [SerializeField] private KeyCode m_KeyCodeModelSwitchNext = KeyCode.RightArrow;
         [SerializeField] private KeyCode m_KeyCodeModelSwitchPrevious = KeyCode.LeftArrow;
+        [SerializeField] private bool m_PlayerRespawnOnStart = false;
         private int _PlayerModelCount;
         public int PlayerModelCount =>
         _PlayerModelCount != 0 ? _PlayerModelCount : (_PlayerModelCount = PlayerModel == null ? 1 : PlayerModel.AvailableModels.Length);
@@ -49,7 +50,8 @@ namespace GreedyVox.NetCode.Tests
         {
             while (PlayerObject == null)
                 yield return null;
-            RespawnPlayer();
+            if (m_PlayerRespawnOnStart)
+                RespawnPlayer();
             StartCoroutine(UpdatePlayer());
         }
         private IEnumerator UpdatePlayer()
