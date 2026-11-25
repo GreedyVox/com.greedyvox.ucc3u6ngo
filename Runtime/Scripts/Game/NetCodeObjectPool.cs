@@ -80,6 +80,7 @@ namespace GreedyVox.NetCode.Game
         /// <param name="pool">Specifies whether to use the pool manager for this object.</param>
         public virtual void SetupSpawnManager(GameObject go, bool pool = true)
         {
+            if (go == null) return;
             if (ComponentUtility.HasComponent<NetworkObject>(go))
                 InjectSpawnManager(new NetCodeSpawnInstance(go), go);
         }

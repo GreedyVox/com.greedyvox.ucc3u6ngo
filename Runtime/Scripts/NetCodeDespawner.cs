@@ -13,16 +13,14 @@ namespace GreedyVox.NetCode
         /// <summary>
         /// Initialize the default values.
         /// </summary>
-        private void Awake() =>
-        m_NetCodeObject = GetComponent<NetworkObject>();
+        private void Awake() => m_NetCodeObject = GetComponent<NetworkObject>();
         /// <summary>
         /// The object has died.
         /// </summary>
         /// <param name="position">The position of the force.</param>
         /// <param name="force">The amount of force which killed the object.</param>
         /// <param name="attacker">The GameObject that killed the object.</param>
-        public void Despawn() =>
-        m_RemoveEvent = SchedulerBase.Schedule(m_DespawnTimer, Remove);
+        public void Despawn() => m_RemoveEvent = SchedulerBase.Schedule(m_DespawnTimer, Remove);
         /// <summary>
         /// Cancels the remove event.
         /// </summary>

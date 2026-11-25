@@ -45,17 +45,11 @@ namespace GreedyVox.NetCode.Traits
                 {
                     var spawn = SpawnObjectsOnDeath[n];
                     if (spawn == null) continue;
-                    var obj = spawn.gameObject;
-                    if (ObjectPoolBase.IsPooledObject(obj))
-                    {
-                        go = ObjectPoolBase.Instantiate(obj, transform.position, transform.rotation);
-                        NetworkObjectPool.NetworkSpawn(obj, go, true);
-                    }
-                    else
-                    {
-                        go = Instantiate(obj, transform.position, transform.rotation);
-                        if (go.TryGetComponent(out NetworkObject net)) net.Spawn();
-                    }
+                    var prefab = spawn.gameObject;
+                    go = ObjectPoolBase.Instantiate(prefab, transform.position, transform.rotation);
+                    if (!NetCodeObjectPool.TryNetworkSpawn(prefab, go, true)
+                    && go.TryGetComponent(out NetworkObject net))
+                        net.Spawn();
                     if (go.TryGetComponent(out Explosion exp))
                         exp.Explode(gameObject);
                     var rigs = go.GetComponentsInChildren<Rigidbody>();

@@ -67,7 +67,7 @@ namespace GreedyVox.NetCode.Objects
                 ItemID = new uint[len],
                 ItemAmounts = new int[len]
             };
-            for (int i = 0; i < len; ++i)
+            for (int i = 0; i < len; i++)
             {
                 var entry = src[i];
                 data.ItemAmounts[i] = entry.Amount;
@@ -93,11 +93,11 @@ namespace GreedyVox.NetCode.Objects
         public bool Payload(PayloadItemPickup data)
         {
             transform.rotation = data.Rotation;
-            for (int i = 0; i < m_ItemDefinitionAmounts.Length; ++i)
+            for (int i = 0; i < m_ItemDefinitionAmounts.Length; i++)
                 GenericObjectPool.Return(m_ItemDefinitionAmounts[i]);
             if (m_ItemDefinitionAmounts.Length != data.ItemCount)
                 m_ItemDefinitionAmounts = new ItemIdentifierAmount[data.ItemCount];
-            for (int i = 0; i < data.ItemCount; ++i)
+            for (int i = 0; i < data.ItemCount; i++)
             {
                 m_ItemDefinitionAmounts[i] = new ItemIdentifierAmount(
                 ItemIdentifierTracker.GetItemIdentifier(data.ItemID[i]).GetItemDefinition(), data.ItemAmounts[i]);

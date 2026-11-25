@@ -1,3 +1,4 @@
+using System;
 using GreedyVox.NetCode.Data;
 using GreedyVox.NetCode.Objects;
 using GreedyVox.NetCode.Traits;
@@ -7,6 +8,7 @@ using Opsive.UltimateCharacterController.Traits;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace GreedyVox.NetCode.Editors
@@ -17,20 +19,14 @@ namespace GreedyVox.NetCode.Editors
         private static NetCodeItemGrenadeInspector Init() =>
         GetWindowWithRect<NetCodeItemGrenadeInspector>(
         new Rect(Screen.width - 400 / 2, Screen.height - 100 / 2, 300, 600), true, "Network Grenade");
-        private GUIContent m_ContentScript, m_ContentVariable;
-        private Object m_NetworkItem;
+        private GameObject m_NetworkItem;
         private const string IconErrorPath = "d_console.erroricon.sml";
         private const string IconIfoPath = "d_console.infoicon.sml";
-        private void OnEnable()
-        {
-            m_ContentScript = new GUIContent(" SCRIPT", EditorGUIUtility.IconContent(IconIfoPath).image);
-            m_ContentVariable = new GUIContent(" VARIABLE", EditorGUIUtility.IconContent(IconIfoPath).image);
-        }
         private void OnGUI()
         {
             GUILayout.Box("GRENADE PREFAB", GUILayout.ExpandWidth(true));
             EditorGUILayout.BeginHorizontal();
-            m_NetworkItem = EditorGUILayout.ObjectField(m_NetworkItem, typeof(Object), true);
+            m_NetworkItem = (GameObject)EditorGUILayout.ObjectField(m_NetworkItem, typeof(GameObject), true);
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space();
             if (GUILayout.Button("Update Grenade"))
@@ -40,29 +36,48 @@ namespace GreedyVox.NetCode.Editors
                     ShowNotification(new GUIContent("No object selected for updating",
                                          EditorGUIUtility.IconContent(IconErrorPath).image), 15);
                 }
-                else
+                else if (SetupItem(m_NetworkItem))
                 {
-                    SetupItem((GameObject)m_NetworkItem);
                     ShowNotification(new GUIContent("Finished updating grenade item",
                                          EditorGUIUtility.IconContent(IconIfoPath).image), 15);
                 }
+                else
+                {
+                    ShowNotification(new GUIContent("Could not update the grenade. Select a GameObject with a single grenade to convert.",
+                                         EditorGUIUtility.IconContent(IconErrorPath).image), 15);
+                }
             }
             EditorGUILayout.Space();
-            EditorGUILayout.BeginVertical();
-            GUILayout.Box(m_ContentScript, GUILayout.ExpandWidth(true));
-            GUILayout.Label("The NetCodeGrenade Script", EditorStyles.boldLabel);
-            GUILayout.Box(m_ContentVariable, GUILayout.ExpandWidth(true));
-            GUILayout.Label("The m_InitializeOnEnaunity symbol version 6.0ble Variable", EditorStyles.boldLabel);
-            GUILayout.Box("The m_InitializeOnEnable variable on the NetCodeGrenade script, must be manually set to false for prevent overriding the projectile's position when spawning from the client.", GUILayout.ExpandWidth(true));
-            EditorGUILayout.EndVertical();
+            EditorGUILayout.HelpBox("The upgrade turns off Initialize On Enable so the network spawn can initialize the grenade.", MessageType.Info);
         }
         /// <summary>
-        /// Sets up the grenade to be able to work with networking.
+        /// Converts or repairs a grenade and saves the network setup on prefab assets.
         /// </summary>
-        private void SetupItem(GameObject go)
+        private bool SetupItem(GameObject go)
         {
-            if (go == null) return;
-            // Remove the single player variants of the necessary componenEditorWindowts.
+            if (go == null) return false;
+
+            var sources = Array.FindAll(go.GetComponents<Grenade>(), grenade => grenade is not NetCodeGrenade);
+            var networkGrenade = go.GetComponent<NetCodeGrenade>();
+            if (sources.Length > 1 || (sources.Length == 0 && networkGrenade == null)) return false;
+
+            if (sources.Length == 1)
+            {
+                var source = sources[0];
+                if (!ComponentUtility.TryAddGetComponent(go, out networkGrenade) ||
+                    !ComponentUtility.TryCopyValues<Grenade>(source, networkGrenade))
+                    return false;
+
+                ComponentUtility.TryRemoveComponent(source);
+                if (source != null) return false;
+            }
+
+            using (var settings = new SerializedObject(networkGrenade))
+            {
+                settings.FindProperty("m_InitializeOnEnable").boolValue = false;
+                settings.ApplyModifiedProperties();
+            }
+
             if (ComponentUtility.TryAddComponent<NetworkObject>(go, out var net))
             {
                 net.SpawnWithObservers = true;
@@ -77,10 +92,8 @@ namespace GreedyVox.NetCode.Editors
             ComponentUtility.TryAddComponent<NetworkTransform>(go);
             ComponentUtility.TryAddComponent<NetCodeInfo>(go);
             ComponentUtility.TryAddComponent<NetCodeDestructibleMonitor>(go);
-            ComponentUtility.TryAddComponent<PayloadGrenadoData>(go);
-            if (!ComponentUtility.TryReplaceCopy<Grenade, NetCodeGrenade>(go))
-                ShowNotification(new GUIContent($"Error while replacing the component {typeof(Grenade)} with {typeof(NetCodeGrenade)}",
-                                     EditorGUIUtility.IconContent(IconErrorPath).image), 15);
+            // The payload requires NetCodeGrenade, so add it after converting the original.
+            if (!ComponentUtility.TryAddGetComponent<PayloadGrenadoData>(go, out _)) return false;
             if (ComponentUtility.HasComponent<AttributeManager>(go))
             {
                 ComponentUtility.TryAddComponent<NetCodeAttributeMonitor>(go);
@@ -90,6 +103,14 @@ namespace GreedyVox.NetCode.Editors
                     Debug.LogError($"Error copying networked spawned objects from {from} to {to}. " +
                     "Ensure that the Health component is properly set up with the NetCodeHealthMonitor component.");
             }
+
+            if (PrefabUtility.IsPartOfPrefabAsset(go))
+            {
+                PrefabUtility.SavePrefabAsset(go, out var saved);
+                return saved;
+            }
+
+            return EditorSceneManager.MarkSceneDirty(go.scene);
         }
     }
 }
